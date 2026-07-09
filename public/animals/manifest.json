@@ -1,0 +1,254 @@
+{
+  "atlas": "atlas.png",
+  "atlasJson": "atlas.json",
+  "animals": [
+    "elephant",
+    "lion",
+    "monkey",
+    "panda",
+    "koala",
+    "pig",
+    "chicken",
+    "bat",
+    "bee",
+    "fox",
+    "squirrel",
+    "duck",
+    "sheep",
+    "cow",
+    "dog",
+    "raccoon",
+    "deer",
+    "frog",
+    "owl",
+    "penguin"
+  ],
+  "totalAnimals": 20,
+  "totalFrames": 160,
+  "frameOrder": [
+    "frontIdle",
+    "frontStep",
+    "leftIdle",
+    "leftWalk",
+    "rightIdle",
+    "rightWalk",
+    "backIdle",
+    "backWalk"
+  ],
+  "padding": 2,
+  "atlasSize": {
+    "w": 2016,
+    "h": 2470
+  },
+  "specialLayouts": {
+    "owl_penguin": {
+      "totalRows": 3,
+      "usedRows": [
+        1,
+        2
+      ]
+    }
+  },
+  "animations": {
+    "elephant": [
+      "elephant/frontIdle",
+      "elephant/frontStep",
+      "elephant/leftIdle",
+      "elephant/leftWalk",
+      "elephant/rightIdle",
+      "elephant/rightWalk",
+      "elephant/backIdle",
+      "elephant/backWalk"
+    ],
+    "lion": [
+      "lion/frontIdle",
+      "lion/frontStep",
+      "lion/leftIdle",
+      "lion/leftWalk",
+      "lion/rightIdle",
+      "lion/rightWalk",
+      "lion/backIdle",
+      "lion/backWalk"
+    ],
+    "monkey": [
+      "monkey/frontIdle",
+      "monkey/frontStep",
+      "monkey/leftIdle",
+      "monkey/leftWalk",
+      "monkey/rightIdle",
+      "monkey/rightWalk",
+      "monkey/backIdle",
+      "monkey/backWalk"
+    ],
+    "panda": [
+      "panda/frontIdle",
+      "panda/frontStep",
+      "panda/leftIdle",
+      "panda/leftWalk",
+      "panda/rightIdle",
+      "panda/rightWalk",
+      "panda/backIdle",
+      "panda/backWalk"
+    ],
+    "koala": [
+      "koala/frontIdle",
+      "koala/frontStep",
+      "koala/leftIdle",
+      "koala/leftWalk",
+      "koala/rightIdle",
+      "koala/rightWalk",
+      "koala/backIdle",
+      "koala/backWalk"
+    ],
+    "pig": [
+      "pig/frontIdle",
+      "pig/frontStep",
+      "pig/leftIdle",
+      "pig/leftWalk",
+      "pig/rightIdle",
+      "pig/rightWalk",
+      "pig/backIdle",
+      "pig/backWalk"
+    ],
+    "chicken": [
+      "chicken/frontIdle",
+      "chicken/frontStep",
+      "chicken/leftIdle",
+      "chicken/leftWalk",
+      "chicken/rightIdle",
+      "chicken/rightWalk",
+      "chicken/backIdle",
+      "chicken/backWalk"
+    ],
+    "bat": [
+      "bat/frontIdle",
+      "bat/frontStep",
+      "bat/leftIdle",
+      "bat/leftWalk",
+      "bat/rightIdle",
+      "bat/rightWalk",
+      "bat/backIdle",
+      "bat/backWalk"
+    ],
+    "bee": [
+      "bee/frontIdle",
+      "bee/frontStep",
+      "bee/leftIdle",
+      "bee/leftWalk",
+      "bee/rightIdle",
+      "bee/rightWalk",
+      "bee/backIdle",
+      "bee/backWalk"
+    ],
+    "fox": [
+      "fox/frontIdle",
+      "fox/frontStep",
+      "fox/leftIdle",
+      "fox/leftWalk",
+      "fox/rightIdle",
+      "fox/rightWalk",
+      "fox/backIdle",
+      "fox/backWalk"
+    ],
+    "squirrel": [
+      "squirrel/frontIdle",
+      "squirrel/frontStep",
+      "squirrel/leftIdle",
+      "squirrel/leftWalk",
+      "squirrel/rightIdle",
+      "squirrel/rightWalk",
+      "squirrel/backIdle",
+      "squirrel/backWalk"
+    ],
+    "duck": [
+      "duck/frontIdle",
+      "duck/frontStep",
+      "duck/leftIdle",
+      "duck/leftWalk",
+      "duck/rightIdle",
+      "duck/rightWalk",
+      "duck/backIdle",
+      "duck/backWalk"
+    ],
+    "sheep": [
+      "sheep/frontIdle",
+      "sheep/frontStep",
+      "sheep/leftIdle",
+      "sheep/leftWalk",
+      "sheep/rightIdle",
+      "sheep/rightWalk",
+      "sheep/backIdle",
+      "sheep/backWalk"
+    ],
+    "cow": [
+      "cow/frontIdle",
+      "cow/frontStep",
+      "cow/leftIdle",
+      "cow/leftWalk",
+      "cow/rightIdle",
+      "cow/rightWalk",
+      "cow/backIdle",
+      "cow/backWalk"
+    ],
+    "dog": [
+      "dog/frontIdle",
+      "dog/frontStep",
+      "dog/leftIdle",
+      "dog/leftWalk",
+      "dog/rightIdle",
+      "dog/rightWalk",
+      "dog/backIdle",
+      "dog/backWalk"
+    ],
+    "raccoon": [
+      "raccoon/frontIdle",
+      "raccoon/frontStep",
+      "raccoon/leftIdle",
+      "raccoon/leftWalk",
+      "raccoon/rightIdle",
+      "raccoon/rightWalk",
+      "raccoon/backIdle",
+      "raccoon/backWalk"
+    ],
+    "deer": [
+      "deer/frontIdle",
+      "deer/frontStep",
+      "deer/leftIdle",
+      "deer/leftWalk",
+      "deer/rightIdle",
+      "deer/rightWalk",
+      "deer/backIdle",
+      "deer/backWalk"
+    ],
+    "frog": [
+      "frog/frontIdle",
+      "frog/frontStep",
+      "frog/leftIdle",
+      "frog/leftWalk",
+      "frog/rightIdle",
+      "frog/rightWalk",
+      "frog/backIdle",
+      "frog/backWalk"
+    ],
+    "owl": [
+      "owl/frontIdle",
+      "owl/frontStep",
+      "owl/leftIdle",
+      "owl/leftWalk",
+      "owl/rightIdle",
+      "owl/rightWalk",
+      "owl/backIdle",
+      "owl/backWalk"
+    ],
+    "penguin": [
+      "penguin/frontIdle",
+      "penguin/frontStep",
+      "penguin/leftIdle",
+      "penguin/leftWalk",
+      "penguin/rightIdle",
+      "penguin/rightWalk",
+      "penguin/backIdle",
+      "penguin/backWalk"
+    ]
+  }
+}

@@ -1,0 +1,462 @@
+diff --git a/app/session/page.tsx b/app/session/page.tsx
+index b5f50f0..1b35798 100644
+--- a/app/session/page.tsx
++++ b/app/session/page.tsx
+@@ -124,6 +124,7 @@ function SessionPageInner() {
+           error={attention.error}
+           videoRef={webcam.videoRef}
+           webcamStatus={webcam.status}
++          distractedReason={attention.distractedReason}
+         />
+ 
+         {/* Live timer */}
+diff --git a/components/AttentionHUD.tsx b/components/AttentionHUD.tsx
+index af878e7..fd46283 100644
+--- a/components/AttentionHUD.tsx
++++ b/components/AttentionHUD.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import { useState } from "react";
++import type { DistractionReason } from "@/lib/hooks/useAttention";
+ 
+ interface AttentionHUDProps {
+   isFocused: boolean;
+@@ -9,8 +10,16 @@ interface AttentionHUDProps {
+   error: string | null;
+   videoRef: React.RefObject<HTMLVideoElement>;
+   webcamStatus: string;
++  distractedReason?: DistractionReason;
+ }
+ 
++const REASON_LABEL: Record<Exclude<DistractionReason, null>, string> = {
++  eyes_closed: "Eyes closed",
++  looking_away: "Eyes off screen",
++  head_extreme: "Head turned too far",
++  no_face: "No face detected",
++};
++
+ export default function AttentionHUD({
+   isFocused,
+   faceDetected,
+@@ -18,6 +27,7 @@ export default function AttentionHUD({
+   error,
+   videoRef,
+   webcamStatus,
++  distractedReason,
+ }: AttentionHUDProps) {
+   const [showPreview, setShowPreview] = useState(true);
+ 
+@@ -90,6 +100,12 @@ export default function AttentionHUD({
+         {statusText}
+       </div>
+ 
++      {isDetecting && !isFocused && distractedReason && (
++        <div className="text-xs text-gray-400 font-pixel">
++          {REASON_LABEL[distractedReason]}
++        </div>
++      )}
++
+       {!isDetecting && webcamStatus === "active" && (
+         <div className="text-xs text-gray-500 font-pixel">Loading AI model...</div>
+       )}
+diff --git a/lib/hooks/useAttention.ts b/lib/hooks/useAttention.ts
+index 8579740..b618229 100644
+--- a/lib/hooks/useAttention.ts
++++ b/lib/hooks/useAttention.ts
+@@ -2,41 +2,55 @@
+ 
+ import { useCallback, useEffect, useRef, useState } from "react";
+ 
++export type DistractionReason =
++  | "eyes_closed"
++  | "looking_away"
++  | "head_extreme"
++  | "no_face"
++  | null;
++
+ export interface AttentionState {
+   isDetecting: boolean;
+   isFocused: boolean;
+   faceDetected: boolean;
+   eyeAspectRatio: number;
++  /** Normalized head yaw. 0 = facing camera. */
++  headYaw: number;
++  /** Averaged normalized iris offset from eye center. 0 = iris centered in socket. */
++  gazeOffset: number;
++  /**
++   * Combined world-space gaze magnitude (head + iris). 0 = looking at screen
++   * even if head is turned but eyes compensate.
++   */
++  worldGaze: number;
++  distractedReason: DistractionReason;
+   error: string | null;
+ }
+ 
+-// EAR below this → eyes closed → distracted
+-const EAR_THRESHOLD = 0.2;
+-
+-// Iris horizontal ratio outside [GAZE_MIN, GAZE_MAX] → looking away → distracted.
+-// Ratio 0 = iris at leftmost corner, 1 = rightmost, ~0.5 = centred on screen.
+-// Range [0.20, 0.80] is intentionally permissive to survive slight head turns.
+-const GAZE_MIN = 0.20;
+-const GAZE_MAX = 0.80;
++// === Tunable thresholds ===
++const EAR_CLOSED_THRESHOLD = 0.25;     // EAR below this → eyes closed or drooped (looking down)
++const EYES_CLOSED_GRACE_MS = 1500;     // eyes can be closed this long without counting as distracted (blink tolerance)
++const WORLD_GAZE_DEADZONE = 0.30;      // |head + iris| above this → gaze not on screen
++const HEAD_YAW_HARD_LIMIT = 0.75;      // |yaw| above this → face too profile for landmarks to be trustworthy
++const FRAMES_TO_DISTRACT = 6;          // sustained "bad" frames before flipping to distracted
++const FRAMES_TO_REFOCUS = 4;           // sustained "good" frames before flipping back
+ 
+ const MEDIAPIPE_WASM_URL =
+   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+ const MODEL_URL =
+   "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+ 
+-// EAR landmark indices for MediaPipe Face Landmarker (478-point mesh)
+-// Layout: [corner-a, top-a, top-b, corner-b, bottom-b, bottom-a]
+-const LEFT_EYE  = [362, 385, 387, 263, 373, 380];
+-const RIGHT_EYE = [33,  160, 158, 133, 153, 144];
+-
+-// Iris centre landmarks (only present in the 478-point mesh model)
+-const LEFT_IRIS_CENTER  = 468;
+-const RIGHT_IRIS_CENTER = 473;
+-
+-// Eye-corner landmark pairs used for the iris-ratio calculation
+-// Taken from the p1/p4 positions of the EAR index arrays above
+-const LEFT_EYE_CORNERS  = [362, 263] as const; // [outerX, innerX]
+-const RIGHT_EYE_CORNERS = [33,  133] as const;
++// MediaPipe 478-point face mesh indices.
++// Eye-corner indices double as the outer EAR landmarks.
++const RIGHT_EYE_EAR = [33, 160, 158, 133, 153, 144];
++const LEFT_EYE_EAR = [362, 385, 387, 263, 373, 380];
++const RIGHT_EYE_CORNERS = { outer: 33, inner: 133 };
++const LEFT_EYE_CORNERS = { outer: 263, inner: 362 };
++const RIGHT_IRIS_CENTER = 468;
++const LEFT_IRIS_CENTER = 473;
++const NOSE_TIP = 1;
++const FACE_LEFT_EDGE = 234;
++const FACE_RIGHT_EDGE = 454;
+ 
+ interface LandmarkPoint {
+   x: number;
+@@ -44,7 +58,6 @@ interface LandmarkPoint {
+   z: number;
+ }
+ 
+-/** Minimal shape of the MediaPipe FaceLandmarker instance we actually use */
+ interface FaceLandmarkerInstance {
+   detectForVideo: (
+     video: HTMLVideoElement,
+@@ -53,7 +66,7 @@ interface FaceLandmarkerInstance {
+   close?: () => void;
+ }
+ 
+-function dist(a: LandmarkPoint, b: LandmarkPoint): number {
++function dist2D(a: LandmarkPoint, b: LandmarkPoint): number {
+   const dx = a.x - b.x;
+   const dy = a.y - b.y;
+   return Math.sqrt(dx * dx + dy * dy);
+@@ -61,46 +74,36 @@ function dist(a: LandmarkPoint, b: LandmarkPoint): number {
+ 
+ function computeEAR(landmarks: LandmarkPoint[], indices: number[]): number {
+   const [p1, p2, p3, p4, p5, p6] = indices.map((i) => landmarks[i]);
+-  const vertical = (dist(p2, p6) + dist(p3, p5)) / 2;
+-  const horizontal = dist(p1, p4);
++  const vertical = (dist2D(p2, p6) + dist2D(p3, p5)) / 2;
++  const horizontal = dist2D(p1, p4);
+   return horizontal > 0 ? vertical / horizontal : 0;
+ }
+ 
+-/**
+- * Returns the horizontal position of the iris centre as a fraction of eye width.
+- * ~0.5 = iris centred (looking at screen); near 0 or 1 = gaze off-screen.
+- * Returns 0.5 (neutral) if the landmark is missing or the eye width is degenerate.
+- */
+-function computeIrisRatio(
+-  landmarks: LandmarkPoint[],
+-  irisCenterIdx: number,
+-  cornerA: number,
+-  cornerB: number
+-): number {
+-  const iris = landmarks[irisCenterIdx];
+-  const ca   = landmarks[cornerA];
+-  const cb   = landmarks[cornerB];
+-  if (!iris || !ca || !cb) return 0.5;
+-  const minX  = Math.min(ca.x, cb.x);
+-  const maxX  = Math.max(ca.x, cb.x);
+-  const width = maxX - minX;
+-  if (width < 0.001) return 0.5;
+-  return (iris.x - minX) / width;
++/** ~0 facing camera; ±1 when nose hits a cheek edge. */
++function computeHeadYaw(landmarks: LandmarkPoint[]): number {
++  const nose = landmarks[NOSE_TIP];
++  const left = landmarks[FACE_LEFT_EDGE];
++  const right = landmarks[FACE_RIGHT_EDGE];
++  const faceWidth = right.x - left.x;
++  if (faceWidth <= 0) return 0;
++  const center = (left.x + right.x) / 2;
++  return (nose.x - center) / (faceWidth / 2);
+ }
+ 
+-/**
+- * Returns true if both eyes appear to be directed at the screen.
+- * Falls back to true (assume gazing) when iris landmarks are unavailable
+- * (i.e. the model returned fewer than 478 points).
+- */
+-function isGazingAtScreen(landmarks: LandmarkPoint[]): boolean {
+-  if (landmarks.length < 478) return true; // iris data not available → fallback
+-
+-  const leftRatio  = computeIrisRatio(landmarks, LEFT_IRIS_CENTER,  ...LEFT_EYE_CORNERS);
+-  const rightRatio = computeIrisRatio(landmarks, RIGHT_IRIS_CENTER, ...RIGHT_EYE_CORNERS);
+-  const avgRatio   = (leftRatio + rightRatio) / 2;
+-
+-  return avgRatio >= GAZE_MIN && avgRatio <= GAZE_MAX;
++/** ~0 when this eye is looking forward; sign matches iris displacement direction. */
++function computeEyeGazeOffset(
++  landmarks: LandmarkPoint[],
++  corners: { outer: number; inner: number },
++  irisCenter: number
++): number {
++  const outer = landmarks[corners.outer];
++  const inner = landmarks[corners.inner];
++  const iris = landmarks[irisCenter];
++  if (!iris) return 0;
++  const eyeCenterX = (outer.x + inner.x) / 2;
++  const eyeWidth = Math.abs(inner.x - outer.x);
++  if (eyeWidth <= 0) return 0;
++  return (iris.x - eyeCenterX) / eyeWidth;
+ }
+ 
+ export function useAttention(
+@@ -112,12 +115,28 @@ export function useAttention(
+     isFocused: false,
+     faceDetected: false,
+     eyeAspectRatio: 0,
++    headYaw: 0,
++    gazeOffset: 0,
++    worldGaze: 0,
++    distractedReason: null,
+     error: null,
+   });
+ 
+   const landmarkerRef = useRef<FaceLandmarkerInstance | null>(null);
+-  const rafRef        = useRef<number | null>(null);
+-  const mountedRef    = useRef(true);
++  const rafRef = useRef<number | null>(null);
++  const mountedRef = useRef(true);
++
++  // Hysteresis state — refs so per-frame updates don't trigger re-renders.
++  const distractCounterRef = useRef(0);
++  const focusCounterRef = useRef(0);
++  const focusedRef = useRef(false);
++  // Timestamp (performance.now ms) when eyes first went closed; null when open.
++  // Used to distinguish blinks from sustained eye closure.
++  const eyesClosedSinceRef = useRef<number | null>(null);
++  // MediaPipe requires strictly increasing timestamps in VIDEO mode.
++  // performance.now() can repeat across two animation frames on some browsers.
++  const lastTimestampRef = useRef(0);
++  const detectErrorLoggedRef = useRef(false);
+ 
+   const stopDetection = useCallback(() => {
+     if (rafRef.current) {
+@@ -137,7 +156,19 @@ export function useAttention(
+   useEffect(() => {
+     if (!active) {
+       stopDetection();
+-      setState((s) => ({ ...s, isDetecting: false, isFocused: false, faceDetected: false }));
++      distractCounterRef.current = 0;
++      focusCounterRef.current = 0;
++      focusedRef.current = false;
++      eyesClosedSinceRef.current = null;
++      lastTimestampRef.current = 0;
++      detectErrorLoggedRef.current = false;
++      setState((s) => ({
++        ...s,
++        isDetecting: false,
++        isFocused: false,
++        faceDetected: false,
++        distractedReason: null,
++      }));
+       return;
+     }
+ 
+@@ -145,7 +176,6 @@ export function useAttention(
+ 
+     async function initMediaPipe() {
+       try {
+-        // Dynamic import to avoid SSR issues
+         const { FaceLandmarker, FilesetResolver } = await import(
+           "@mediapipe/tasks-vision"
+         );
+@@ -182,45 +212,127 @@ export function useAttention(
+ 
+           try {
+             if (!landmarkerRef.current) return;
++            const timestamp = Math.max(
++              performance.now(),
++              lastTimestampRef.current + 1
++            );
++            lastTimestampRef.current = timestamp;
+             const results = landmarkerRef.current.detectForVideo(
+               video,
+-              performance.now()
++              timestamp
+             );
+             const landmarks = results?.faceLandmarks?.[0];
+-            if (landmarks && landmarks.length > 0) {
+-              const leftEAR  = computeEAR(landmarks, LEFT_EYE);
+-              const rightEAR = computeEAR(landmarks, RIGHT_EYE);
+-              const ear = (leftEAR + rightEAR) / 2;
+-
+-              // Focus requires BOTH eyes open AND gaze directed at the screen.
+-              // Previously only EAR was checked, so looking sideways with eyes
+-              // open falsely reported FOCUSED (issue #12).
+-              const eyesOpen       = ear > EAR_THRESHOLD;
+-              const gazingAtScreen = isGazingAtScreen(landmarks);
+-              const focused        = eyesOpen && gazingAtScreen;
+ 
+-              if (mountedRef.current) {
+-                setState({
+-                  isDetecting: true,
+-                  isFocused: focused,
+-                  faceDetected: true,
+-                  eyeAspectRatio: ear,
+-                  error: null,
+-                });
++            if (!landmarks || landmarks.length === 0) {
++              distractCounterRef.current = Math.min(
++                distractCounterRef.current + 1,
++                FRAMES_TO_DISTRACT
++              );
++              focusCounterRef.current = 0;
++              if (distractCounterRef.current >= FRAMES_TO_DISTRACT) {
++                focusedRef.current = false;
+               }
+-            } else {
+               if (mountedRef.current) {
+                 setState({
+                   isDetecting: true,
+-                  isFocused: false,
++                  isFocused: focusedRef.current,
+                   faceDetected: false,
+                   eyeAspectRatio: 0,
++                  headYaw: 0,
++                  gazeOffset: 0,
++                  worldGaze: 0,
++                  distractedReason: focusedRef.current ? null : "no_face",
+                   error: null,
+                 });
+               }
++              rafRef.current = requestAnimationFrame(detect);
++              return;
++            }
++
++            const leftEAR = computeEAR(landmarks, LEFT_EYE_EAR);
++            const rightEAR = computeEAR(landmarks, RIGHT_EYE_EAR);
++            const ear = (leftEAR + rightEAR) / 2;
++            const yaw = computeHeadYaw(landmarks);
++            const rightGaze = computeEyeGazeOffset(
++              landmarks,
++              RIGHT_EYE_CORNERS,
++              RIGHT_IRIS_CENTER
++            );
++            const leftGaze = computeEyeGazeOffset(
++              landmarks,
++              LEFT_EYE_CORNERS,
++              LEFT_IRIS_CENTER
++            );
++            const gaze = (rightGaze + leftGaze) / 2;
++
++            // Track eye-closure duration so brief blinks don't count as distracted.
++            const now = performance.now();
++            const eyesClosed = ear < EAR_CLOSED_THRESHOLD;
++            if (eyesClosed) {
++              if (eyesClosedSinceRef.current === null) eyesClosedSinceRef.current = now;
++            } else {
++              eyesClosedSinceRef.current = null;
++            }
++            const eyesClosedMs =
++              eyesClosedSinceRef.current === null ? 0 : now - eyesClosedSinceRef.current;
++            const eyesClosedTooLong = eyesClosedMs > EYES_CLOSED_GRACE_MS;
++
++            // World gaze = head pose + iris offset. When head turns one way and
++            // eyes compensate the other way, these cancel and the user is still
++            // looking at the screen. When eyes leave the screen (regardless of
++            // head pose), the two signs reinforce and the magnitude grows.
++            // During a blink, iris landmarks are unreliable — treat as on-screen.
++            const worldGaze = eyesClosed ? 0 : yaw + gaze;
++
++            const headExtreme = Math.abs(yaw) > HEAD_YAW_HARD_LIMIT;
++            const lookingAway = Math.abs(worldGaze) > WORLD_GAZE_DEADZONE;
++
++            let reason: DistractionReason = null;
++            if (eyesClosedTooLong) reason = "eyes_closed";
++            else if (headExtreme) reason = "head_extreme";
++            else if (lookingAway) reason = "looking_away";
++
++            const frameOK = !eyesClosedTooLong && !headExtreme && !lookingAway;
++
++            if (frameOK) {
++              focusCounterRef.current = Math.min(
++                focusCounterRef.current + 1,
++                FRAMES_TO_REFOCUS
++              );
++              distractCounterRef.current = 0;
++              if (focusCounterRef.current >= FRAMES_TO_REFOCUS) {
++                focusedRef.current = true;
++              }
++            } else {
++              distractCounterRef.current = Math.min(
++                distractCounterRef.current + 1,
++                FRAMES_TO_DISTRACT
++              );
++              focusCounterRef.current = 0;
++              if (distractCounterRef.current >= FRAMES_TO_DISTRACT) {
++                focusedRef.current = false;
++              }
++            }
++
++            if (mountedRef.current) {
++              setState({
++                isDetecting: true,
++                isFocused: focusedRef.current,
++                faceDetected: true,
++                eyeAspectRatio: ear,
++                headYaw: yaw,
++                gazeOffset: gaze,
++                worldGaze,
++                distractedReason: focusedRef.current ? null : reason,
++                error: null,
++              });
++            }
++          } catch (err) {
++            // Skip frames that fail, but surface the first error so it's diagnosable.
++            if (!detectErrorLoggedRef.current) {
++              detectErrorLoggedRef.current = true;
++              console.warn("[useAttention] detection error (subsequent suppressed):", err);
+             }
+-          } catch {
+-            // Silently skip frames that fail
+           }
+ 
+           rafRef.current = requestAnimationFrame(detect);
+@@ -228,14 +340,15 @@ export function useAttention(
+ 
+         setState((s) => ({ ...s, isDetecting: true, error: null }));
+         detect();
+-      } catch (err) {
++      } catch {
+         if (!cancelled && mountedRef.current) {
+           setState((s) => ({
+             ...s,
+             error: "Attention detection unavailable. Running as manual timer.",
+             isDetecting: false,
+-            isFocused: true, // Default to focused so session still works
++            isFocused: true, // manual-timer fallback when model can't load
+             faceDetected: true,
++            distractedReason: null,
+           }));
+         }
+       }

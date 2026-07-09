@@ -1,0 +1,319 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ────────────────────────────────────────────────────── */
+:root {
+  --farm-bg: #1a2e1a;
+  --farm-panel: #0f1f0f;
+  --farm-border: #2d4a2d;
+  --grass-a: #6aaa35;
+  --grass-b: #72b43d;
+  --grass-c: #63a02e;
+  --grass-d: #78b840;
+  --soil: #c8a46e;
+  --wood: #8b5e30;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background-color: #a8d8c6; /* water colour from scene.js — fills edges around the farm canvas */
+  color: #e5e7eb;
+  min-height: 100vh;
+}
+
+.font-pixel { font-family: 'Press Start 2P', monospace; }
+
+/* ── Typography scale ────────────────────────────────────────────
+ * Six-tier hierarchy for all in-app pixel-font text. Every text
+ * element MUST use exactly ONE of these classes (alongside .font-pixel).
+ * Do NOT introduce ad-hoc font-sizes via inline styles or text-xs/sm/lg.
+ * Exception: standalone emoji decorations (🎉 📷 etc.) may use Tailwind
+ * text-2xl / text-4xl for sizing — they aren't pixel-font characters.
+ *
+ *   text-pixel-2xl (48px) — focal numeric displays  (the session timer)
+ *   text-pixel-xl  (24px) — page hero               (FOCUS FARM logo)
+ *   text-pixel-lg  (16px) — big numbers, modal H2   (Sessions count, modal headings, prices)
+ *   text-pixel-md  (11px) — header / section titles (top-bar title, card title, primary buttons)
+ *   text-pixel-sm  (9px)  — body, descriptions, secondary button labels
+ *   text-pixel-xs  (7px)  — captions, micro labels  (stat labels, footnotes, tier rows)
+ * ───────────────────────────────────────────────────────────── */
+.text-pixel-2xl { font-size: 48px; line-height: 1;   letter-spacing: 0.04em; }
+.text-pixel-xl  { font-size: 24px; line-height: 1.2; letter-spacing: 0.06em; }
+.text-pixel-lg  { font-size: 16px; line-height: 1.3; letter-spacing: 0.05em; }
+.text-pixel-md  { font-size: 11px; line-height: 1.4; letter-spacing: 0.04em; }
+.text-pixel-sm  { font-size: 9px;  line-height: 1.6; letter-spacing: 0.02em; }
+.text-pixel-xs  { font-size: 7px;  line-height: 1.6; letter-spacing: 0.02em; }
+
+/* ── Pixel image rendering ───────────────────────────────────── */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--farm-panel); }
+::-webkit-scrollbar-thumb { background: var(--farm-border); border-radius: 3px; }
+
+/* ── Farm grid grass tile colours ───────────────────────────── */
+.bg-farm-grass       { background-color: #6aaa35; }
+.bg-farm-grass-dark  { background-color: #5a9828; }
+.bg-farm-grass-light { background-color: #78b840; }
+.bg-farm-panel       { background-color: #0f1f0f; }
+.bg-farm-border      { background-color: #2d4a2d; }
+.border-farm-border  { border-color: #2d4a2d; }
+.border-farm-grass   { border-color: #5a9828; }
+.border-farm-focused { border-color: #4ade80; }
+.border-farm-distracted { border-color: #f87171; }
+.text-farm-focused   { color: #4ade80; }
+.text-farm-distracted { color: #f87171; }
+.hover\:bg-farm-grass:hover      { background-color: #6aaa35; }
+.hover\:bg-farm-grass-light:hover { background-color: #78b840; }
+.hover\:border-farm-grass:hover  { border-color: #5a9828; }
+.bg-farm-focused\/10  { background-color: rgba(74,222,128,0.10); }
+.bg-farm-focused\/20  { background-color: rgba(74,222,128,0.20); }
+.bg-farm-focused\/40  { background-color: rgba(74,222,128,0.40); }
+
+/* ══════════════════════════════════════════════════════════════
+   PIXEL ART BUTTONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Primary green pixel button (matches reference) */
+.pixel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #ffffff;
+  background: #5cb85c;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  text-shadow: 1px 1px 0 #1a4a1a;
+  /* Chunky 3D pixel border */
+  outline: 3px solid #1a4a1a;
+  box-shadow:
+    0 5px 0 0 #1a4a1a,
+    inset 0 2px 0 0 rgba(255,255,255,0.35),
+    inset 0 -2px 0 0 rgba(0,0,0,0.20);
+  /* Rounded pixel corners via clip-path */
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+  transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
+  user-select: none;
+}
+.pixel-btn:hover { background: #6acf6a; }
+.pixel-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    0 1px 0 0 #1a4a1a,
+    inset 0 2px 0 0 rgba(0,0,0,0.15);
+}
+.pixel-btn:disabled {
+  background: #4a6a4a;
+  color: #7a9a7a;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 0 #1a3a1a;
+}
+
+/* Large hero variant */
+.pixel-btn-lg {
+  font-size: 13px;
+  padding: 18px 36px;
+  gap: 12px;
+}
+
+/* Secondary/outline variant */
+.pixel-btn-outline {
+  background: transparent;
+  color: #7ab648;
+  outline: 3px solid #3a6a2a;
+  box-shadow: 0 4px 0 0 #1a3a1a, inset 0 1px 0 0 rgba(255,255,255,0.1);
+  text-shadow: none;
+}
+.pixel-btn-outline:hover { background: rgba(74,166,40,0.15); }
+
+/* Danger/red variant */
+.pixel-btn-danger {
+  background: #cc4444;
+  outline: 3px solid #6a1a1a;
+  box-shadow: 0 5px 0 0 #6a1a1a, inset 0 2px 0 0 rgba(255,255,255,0.25);
+}
+.pixel-btn-danger:hover { background: #dd5555; }
+
+/* Small variant */
+.pixel-btn-sm {
+  font-size: 9px;
+  padding: 8px 16px;
+  gap: 6px;
+  box-shadow: 0 3px 0 0 #1a4a1a, inset 0 1px 0 0 rgba(255,255,255,0.3);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PIXEL COIN
+   ══════════════════════════════════════════════════════════════ */
+.pixel-coin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  color: #ffe566;
+  background: #2a1e00;
+  padding: 6px 12px 6px 8px;
+  outline: 3px solid #6a4a00;
+  box-shadow: 0 3px 0 #3a2a00, inset 0 1px 0 rgba(255,200,0,0.2);
+  clip-path: polygon(
+    5px 0%, calc(100% - 5px) 0%,
+    100% 5px, 100% calc(100% - 5px),
+    calc(100% - 5px) 100%, 5px 100%,
+    0% calc(100% - 5px), 0% 5px
+  );
+}
+
+/* The coin icon itself */
+.pixel-coin-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f5c518;
+  outline: 2px solid #7a5500;
+  box-shadow:
+    inset -3px -3px 0 #c88a00,
+    inset 2px 2px 0 #ffe066,
+    0 0 0 1px #f5c518;
+  flex-shrink: 0;
+  position: relative;
+}
+.pixel-coin-icon::after {
+  content: '';
+  position: absolute;
+  top: 3px; left: 5px;
+  width: 4px; height: 7px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 2px;
+  transform: rotate(-15deg);
+}
+
+/* Coin pop animation on balance change */
+@keyframes coinPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.4) rotate(-8deg); }
+  70%  { transform: scale(0.9) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.coin-pop { animation: coinPop 0.45s ease-out; }
+
+/* ══════════════════════════════════════════════════════════════
+   FARM TILE DECORATIONS
+   ══════════════════════════════════════════════════════════════ */
+.farm-tile-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  transition: background 0.15s;
+}
+.farm-tile-hover-overlay:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ANIMAL WANDER ANIMATIONS  (4 unique paths × 2 speeds)
+   Each animal gets one based on hash of its tile ID.
+   scaleX(-1) = flip to face left during leftward movement.
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes wander-a {
+  0%   { transform: translate(  0px,  0px) scaleX( 1); }
+  15%  { transform: translate( 16px, -6px) scaleX( 1); }
+  30%  { transform: translate( 20px, 10px) scaleX( 1); }
+  45%  { transform: translate( 10px, 20px) scaleX( 1); }
+  60%  { transform: translate(-10px, 14px) scaleX(-1); }
+  75%  { transform: translate(-20px,  2px) scaleX(-1); }
+  90%  { transform: translate( -8px, -8px) scaleX(-1); }
+  100% { transform: translate(  0px,  0px) scaleX( 1); }
+}
+
+@keyframes wander-b {
+  0%   { transform: translate(  0px,  0px) scaleX(-1); }
+  20%  { transform: translate(-18px,  8px) scaleX(-1); }
+  40%  { transform: translate(-20px, 18px) scaleX(-1); }
+  55%  { transform: translate(  0px, 22px) scaleX( 1); }
+  70%  { transform: translate( 18px, 12px) scaleX( 1); }
+  85%  { transform: translate( 14px, -4px) scaleX( 1); }
+  100% { transform: translate(  0px,  0px) scaleX(-1); }
+}
+
+@keyframes wander-c {
+  0%   { transform: translate(  6px,  2px) scaleX( 1); }
+  18%  { transform: translate( 22px, -4px) scaleX( 1); }
+  35%  { transform: translate( 18px, 16px) scaleX( 1); }
+  55%  { transform: translate(  4px, 22px) scaleX(-1); }
+  72%  { transform: translate(-16px, 10px) scaleX(-1); }
+  88%  { transform: translate( -6px, -6px) scaleX( 1); }
+  100% { transform: translate(  6px,  2px) scaleX( 1); }
+}
+
+@keyframes wander-d {
+  0%   { transform: translate( -6px,  4px) scaleX(-1); }
+  22%  { transform: translate(  0px, -10px) scaleX( 1); }
+  40%  { transform: translate( 16px, -6px) scaleX( 1); }
+  58%  { transform: translate( 20px, 14px) scaleX( 1); }
+  75%  { transform: translate(  4px, 20px) scaleX(-1); }
+  90%  { transform: translate(-14px,  8px) scaleX(-1); }
+  100% { transform: translate( -6px,  4px) scaleX(-1); }
+}
+
+/* Idle bob (used for non-wandering moments) */
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-5px); }
+}
+
+/* Eating dip */
+@keyframes idle-eat {
+  0%, 45%, 100% { transform: translateY(0px) scaleX(1); }
+  50%, 60%      { transform: translateY(5px) scaleX(1) scaleY(0.92); }
+  70%           { transform: translateY(-3px) scaleX(1); }
+}
+
+.anim-wander-a { animation-name: wander-a; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.anim-wander-b { animation-name: wander-b; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.anim-wander-c { animation-name: wander-c; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.anim-wander-d { animation-name: wander-d; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.anim-eat      { animation-name: idle-eat; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+/* ══════════════════════════════════════════════════════════════
+   FARM PANEL / PAGE CHROME
+   ══════════════════════════════════════════════════════════════ */
+.pixel-panel {
+  background: #0f1f0f;
+  outline: 3px solid #2d4a2d;
+  box-shadow: 0 4px 0 #1a0e00, inset 0 1px 0 rgba(255,255,255,0.04);
+  clip-path: polygon(
+    6px 0%, calc(100% - 6px) 0%,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0% calc(100% - 6px), 0% 6px
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PLACEMENT MODE PULSE
+   ══════════════════════════════════════════════════════════════ */
+@keyframes placePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+  50%      { box-shadow: 0 0 0 8px rgba(74,222,128,0); }
+}
+.placement-banner { animation: placePulse 1.5s ease-out infinite; }
