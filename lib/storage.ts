@@ -135,6 +135,14 @@ export function saveFarm(farm: FarmGrid): void {
   safeSet(KEYS.farm, farm);
 }
 
+// Dev/testing helper — wipes placed animals only. Coins, profile, streak,
+// and session history are left untouched.
+export function clearFarmTiles(): FarmGrid {
+  const cleared: FarmGrid = { ...getFarm(), tiles: [] };
+  saveFarm(cleared);
+  return cleared;
+}
+
 export function clearAll(): void {
   if (typeof window === "undefined") return;
   Object.values(KEYS).forEach((k) => localStorage.removeItem(k));

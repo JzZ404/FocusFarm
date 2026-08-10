@@ -16,6 +16,7 @@ import {
   FarmGrid,
   FarmTile,
   UserProfile,
+  clearFarmTiles,
   getFarm,
   getLedger,
   getProfile,
@@ -31,6 +32,7 @@ interface FarmContextValue {
   purchaseItem: (itemId: string) => boolean;
   placeItem: (gridX: number, gridY: number) => boolean;
   cancelPlacement: () => void;
+  clearAnimals: () => void;
   addEarnedCoins: (amount: number, reason: string) => void;
   refreshFromStorage: () => void;
 }
@@ -143,6 +145,12 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     setPendingItemId(null);
   }, [pendingItemId]);
 
+  // Dev/testing helper — wipes placed animals only, leaves coins/profile alone.
+  const clearAnimals = useCallback(() => {
+    const cleared = clearFarmTiles();
+    setFarm(cleared);
+  }, []);
+
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     if (profile.lastSessionDate !== today) {
@@ -169,6 +177,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
         purchaseItem,
         placeItem,
         cancelPlacement,
+        clearAnimals,
         addEarnedCoins,
         refreshFromStorage,
       }}

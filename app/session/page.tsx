@@ -66,9 +66,14 @@ function SessionPageInner() {
         className="flex items-center justify-between px-5 py-3"
         style={{ background: "#0a150a", borderBottom: "3px solid #2d4a2d" }}
       >
-        <Link href="/">
-          <PixelButton variant="outline" size="sm">← Farm</PixelButton>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/">
+            <PixelButton variant="outline" size="sm">Home</PixelButton>
+          </Link>
+          <Link href="/farm">
+            <PixelButton variant="outline" size="sm">Farm</PixelButton>
+          </Link>
+        </div>
         <span className="font-pixel text-pixel-lg text-white">Focus Session</span>
         <CoinDisplay balance={ledger.balance} size="sm" />
       </header>
@@ -103,11 +108,11 @@ function SessionPageInner() {
             </div>
 
             <div className="flex gap-3 w-full">
-              <PixelButton className="flex-1" onClick={() => { dismissSummary(); router.push("/"); }}>
-                🌾 Farm
+              <PixelButton className="flex-1" onClick={() => { dismissSummary(); router.push("/farm"); }}>
+                Farm
               </PixelButton>
               <Link href="/shop" className="flex-1" onClick={dismissSummary}>
-                <PixelButton variant="outline" className="w-full">🛒 Shop</PixelButton>
+                <PixelButton variant="outline" className="w-full">Shop</PixelButton>
               </Link>
             </div>
           </div>
@@ -150,16 +155,16 @@ function SessionPageInner() {
         {status === "idle" || status === "abandoned" ? (
           <div className="flex flex-col items-center gap-3">
             <PixelButton size="lg" onClick={handleStart}>
-              📷 Start with Camera
+              Start with Camera
             </PixelButton>
             <PixelButton variant="outline" size="sm" onClick={() => startSession(25)}>
-              ⏱️ Start without Camera
+              Start without Camera
             </PixelButton>
           </div>
         ) : isRunning ? (
           <div className="flex gap-3">
-            <PixelButton size="md" onClick={endSession}>✅ Finish</PixelButton>
-            <PixelButton variant="danger" size="sm" onClick={abandonSession}>✗ Abandon</PixelButton>
+            <PixelButton size="md" onClick={endSession}>Finish</PixelButton>
+            <PixelButton variant="danger" size="sm" onClick={abandonSession}>Abandon</PixelButton>
           </div>
         ) : null}
 

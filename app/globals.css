@@ -28,25 +28,40 @@ html, body {
 .font-pixel { font-family: 'Press Start 2P', monospace; }
 
 /* ── Typography scale ────────────────────────────────────────────
- * Six-tier hierarchy for all in-app pixel-font text. Every text
+ * Seven-tier hierarchy for all in-app pixel-font text. Every text
  * element MUST use exactly ONE of these classes (alongside .font-pixel).
  * Do NOT introduce ad-hoc font-sizes via inline styles or text-xs/sm/lg.
  * Exception: standalone emoji decorations (🎉 📷 etc.) may use Tailwind
  * text-2xl / text-4xl for sizing — they aren't pixel-font characters.
  *
- *   text-pixel-2xl (48px) — focal numeric displays  (the session timer)
- *   text-pixel-xl  (24px) — page hero               (FOCUS FARM logo)
+ *   text-pixel-3xl (72px) — mega hero                (starter menu "FocusFarm" title)
+ *   text-pixel-2xl (48px) — focal numeric displays    (the session timer)
+ *   text-pixel-xl  (24px) — secondary hero-adjacent headings
  *   text-pixel-lg  (16px) — big numbers, modal H2   (Sessions count, modal headings, prices)
  *   text-pixel-md  (11px) — header / section titles (top-bar title, card title, primary buttons)
  *   text-pixel-sm  (9px)  — body, descriptions, secondary button labels
  *   text-pixel-xs  (7px)  — captions, micro labels  (stat labels, footnotes, tier rows)
  * ───────────────────────────────────────────────────────────── */
+.text-pixel-3xl { font-size: 72px; line-height: 1;   letter-spacing: 0.03em; }
 .text-pixel-2xl { font-size: 48px; line-height: 1;   letter-spacing: 0.04em; }
 .text-pixel-xl  { font-size: 24px; line-height: 1.2; letter-spacing: 0.06em; }
 .text-pixel-lg  { font-size: 16px; line-height: 1.3; letter-spacing: 0.05em; }
 .text-pixel-md  { font-size: 11px; line-height: 1.4; letter-spacing: 0.04em; }
 .text-pixel-sm  { font-size: 9px;  line-height: 1.6; letter-spacing: 0.02em; }
 .text-pixel-xs  { font-size: 7px;  line-height: 1.6; letter-spacing: 0.02em; }
+
+/* Hard-edged 8-direction outline for hero pixel text (no blur, matches the
+ * game's chunky pixel-border language used on buttons/panels). Wood brown
+ * (--wood, #8b5e30 — already an existing palette token). NOTE: this fails
+ * the contrast checklist below (2.58:1 vs --farm-bg, needs 3:1) — flagged,
+ * kept anyway per explicit design direction. See DESIGN.md changelog. */
+.text-pixel-stroke {
+  text-shadow:
+    -16px -16px 0 var(--wood),  16px -16px 0 var(--wood),
+    -16px  16px 0 var(--wood),  16px  16px 0 var(--wood),
+      0   -16px 0 var(--wood),   0    16px 0 var(--wood),
+    -16px   0   0 var(--wood),  16px   0   0 var(--wood);
+}
 
 /* ── Pixel image rendering ───────────────────────────────────── */
 .pixelated {
@@ -134,15 +149,20 @@ html, body {
   gap: 12px;
 }
 
-/* Secondary/outline variant */
+/* Secondary/outline variant
+ * NOTE: previously `background: transparent` with a `#3a6a2a` border — that
+ * border sat at 2.26:1 against --farm-bg, failing WCAG 1.4.11 (needs 3:1),
+ * so the whole button read as boundary-less on dark backgrounds. Fixed with
+ * a solid fill using existing palette tokens (--farm-border / grass-dark),
+ * verified AAA (9.86:1 border-adjacent-page, 7.74:1 text-on-fill). */
 .pixel-btn-outline {
-  background: transparent;
-  color: #7ab648;
-  outline: 3px solid #3a6a2a;
+  background: var(--farm-border); /* #2d4a2d — was transparent */
+  color: #c8f0a8;                 /* was #7ab648 — 7.74:1 on new fill (AAA) */
+  outline: 3px solid #5a9828;     /* was #3a6a2a — 4.11:1 vs page bg (passes 1.4.11) */
   box-shadow: 0 4px 0 0 #1a3a1a, inset 0 1px 0 0 rgba(255,255,255,0.1);
   text-shadow: none;
 }
-.pixel-btn-outline:hover { background: rgba(74,166,40,0.15); }
+.pixel-btn-outline:hover { background: #345536; }
 
 /* Danger/red variant */
 .pixel-btn-danger {

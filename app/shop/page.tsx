@@ -17,9 +17,14 @@ export default function ShopPage() {
         className="flex items-center justify-between px-5 py-3"
         style={{ background: "#0a150a", borderBottom: "3px solid #2d4a2d" }}
       >
-        <Link href="/">
-          <PixelButton variant="outline" size="sm">← Farm</PixelButton>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/">
+            <PixelButton variant="outline" size="sm">Home</PixelButton>
+          </Link>
+          <Link href="/farm">
+            <PixelButton variant="outline" size="sm">Farm</PixelButton>
+          </Link>
+        </div>
         <span className="font-pixel text-pixel-lg text-white">🛒 Shop</span>
         <CoinDisplay balance={ledger.balance} size="sm" />
       </header>
@@ -34,8 +39,8 @@ export default function ShopPage() {
             Item purchased! Go back to your farm to place it.
           </span>
           <div className="flex gap-4">
-            <Link href="/">
-              <PixelButton size="sm">🌾 Go to Farm</PixelButton>
+            <Link href="/farm">
+              <PixelButton size="sm">Go to Farm</PixelButton>
             </Link>
             <button
               onClick={cancelPlacement}

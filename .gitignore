@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# macOS
+.DS_Store
+
+# Editor/agent-local config
+.claude/
+
+# Leftover mirror clone from before this repo existed — not part of the
+# FocusFarm project, see git history / CLAUDE.md for context.
+final-project-codebase-JzZ404.git/
+
+# Env files (none required for MVP per README, but don't want secrets
+# committed if/when they show up)
+.env
+.env.local
+.env*.local
