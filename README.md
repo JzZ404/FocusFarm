@@ -1,6 +1,6 @@
 # FocusFarm
 
-**Live App:** [https://focus-farm-five.vercel.app/]
+**Live App:** https://focus-farm-five.vercel.app/
 
 FocusFarm is a gamified productivity web app where users earn coins by maintaining attention during webcam-based focus sessions. Users can spend coins to build a pixelated animal farm with animals, houses, and decorations. Over time, the farm grows as a visual representation of productivity and focus.
 
