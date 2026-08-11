@@ -20,3 +20,4 @@ final-project-codebase-JzZ404.git/
 .env
 .env.local
 .env*.local
+.gstack/

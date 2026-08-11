@@ -82,9 +82,12 @@
     }
 
     // ---- organic island (no outline ring) ----
-    const icx = 216, icy = 84;
-    const base = isleBase(icx, icy, 200, 64, 0.085, 20);
-    const isl = { x: 12, y: 16, w: 408, h: 134 }; // approx bounds for texture/placement
+    // icy/ry grown (was 84/64) and shifted down so the coastline actually
+    // reaches the field's bottom edge (fcy+fry=158) — it used to end around
+    // y=148 there, leaving the field's south end floating in open water.
+    const icx = 216, icy = 90;
+    const base = isleBase(icx, icy, 205, 82, 0.085, 20);
+    const isl = { x: 8, y: 6, w: 416, h: 152 }; // approx bounds for texture/placement
     c.save(); closedPath(base); c.fillStyle = COL.grass; c.fill(); c.clip();
     // soft, low-contrast grass mottling
     for (let i = 0; i < 2600; i++) { const x = ri(isl.x, isl.x + isl.w), y = ri(isl.y, isl.y + isl.h); c.fillStyle = f() < 0.5 ? COL.grassL : COL.grassD; c.fillRect(x, y, 1, 1); }
@@ -141,22 +144,45 @@
       c.fillStyle = COL.pebble; pts.forEach((p, i) => { if (i % 10 === 0 && f() < 0.6) c.fillRect(Math.round(p[0] + ri(-1, 1)), Math.round(p[1] + ri(-1, 1)), 1, 1); });
       c.fillStyle = COL.grassDark; pts.forEach((p, i) => { if (i % 4 === 0 && f() < 0.5) { const a = f() * 6.28; c.fillRect(Math.round(p[0] + Math.cos(a) * wd / 2), Math.round(p[1] + Math.sin(a) * wd / 2), 1, 1); } });
     }
-    trail([[93, 94], [150, 101], [205, 106], [252, 110], [300, 115], [352, 119], [416, 123]], 7);
-    trail([[252, 111], [250, 117]], 5);
+    // Arcs above and around the field's fenced footprint (not just barely
+    // clearing it) — waypoints keep 20px+ clearance from the nearest fence
+    // post throughout, recomputed for the field's new smaller/shifted size.
+    trail([[93, 94], [145, 90], [200, 90], [252, 94], [296, 100], [352, 119], [392, 110]], 7);
+    // (removed a second stub trail that sat entirely inside the field —
+    // redundant with the field's own soil texture, and part of the overlap)
 
-    // ---- field (organic soil patch) ----
+    // ---- field (rounded-rect soil patch, was a full oval) ----
     const field = (function () {
-      const fcx = 226, fcy = 132, frx = 84, fry = 26;
-      const sb = isleBase(fcx, fcy, frx, fry, 0.07, 16);
-      c.save(); closedPath(expand(sb, fcx, fcy, 2)); c.fillStyle = COL.soilDk; c.fill(); c.restore();
-      c.save(); closedPath(sb); c.fillStyle = COL.soil; c.fill(); c.clip();
+      // Scaled down a bit (frx 84->76, fry 26->24) and shifted up (fcy 132->126)
+      // — at the old size its fence padding reached y=164, past the AH=160
+      // canvas bottom, clipping it. fr raised again (20->22, near the max
+      // valid radius for this box) for noticeably rounder corners.
+      const fcx = 226, fcy = 126, frx = 76, fry = 24, fr = 22;
+      const fx = fcx - frx, fy = fcy - fry, fw = frx * 2, fh = fry * 2;
+      c.save(); rrp(fx - 2, fy - 2, fw + 4, fh + 4, fr + 2); c.fillStyle = COL.soilDk; c.fill(); c.restore();
+      c.save(); rrp(fx, fy, fw, fh, fr); c.fillStyle = COL.soil; c.fill(); c.clip();
       for (let i = 0; i < 2600; i++) { const x = ri(fcx - frx, fcx + frx), y = ri(fcy - fry, fcy + fry); c.fillStyle = f() < 0.5 ? COL.soilL : COL.soilD; c.fillRect(x, y, 1, 1); }
       // soft tilled hints (subtle, short dashes)
       c.fillStyle = COL.soilD;
       for (let yy = fcy - fry + 7; yy < fcy + fry - 4; yy += 7) for (let xx = fcx - frx + 6; xx < fcx + frx - 6; xx += 4) { if (f() < 0.7) c.fillRect(xx, yy, 2, 1); }
       c.restore();
-      return { cx: fcx, cy: fcy, rx: frx, ry: fry, fx: fcx - frx, fy: fcy - fry, fw: frx * 2, fh: fry * 2 };
+      return { cx: fcx, cy: fcy, rx: frx, ry: fry, fx, fy, fw, fh, fr };
     })();
+    // point at parameter t (0-1) walking clockwise around a rounded rect's
+    // perimeter, starting at the top edge just right of the top-left corner
+    function roundedRectPoint(x, y, w, h, r, t) {
+      const sw = w - 2 * r, sh = h - 2 * r, arc = (Math.PI / 2) * r;
+      const perim = 2 * sw + 2 * sh + 4 * arc;
+      let d = ((t % 1) + 1) % 1 * perim;
+      if (d < sw) return [x + r + d, y]; d -= sw;
+      if (d < arc) { const a = -Math.PI / 2 + (d / arc) * (Math.PI / 2); return [x + w - r + Math.cos(a) * r, y + r + Math.sin(a) * r]; } d -= arc;
+      if (d < sh) return [x + w, y + r + d]; d -= sh;
+      if (d < arc) { const a = (d / arc) * (Math.PI / 2); return [x + w - r + Math.cos(a) * r, y + h - r + Math.sin(a) * r]; } d -= arc;
+      if (d < sw) return [x + w - r - d, y + h]; d -= sw;
+      if (d < arc) { const a = Math.PI / 2 + (d / arc) * (Math.PI / 2); return [x + r + Math.cos(a) * r, y + h - r + Math.sin(a) * r]; } d -= arc;
+      if (d < sh) return [x, y + h - r - d]; d -= sh;
+      const a = Math.PI + (d / arc) * (Math.PI / 2); return [x + r + Math.cos(a) * r, y + r + Math.sin(a) * r];
+    }
 
     // ---- sprites ----
     const cache = {}; function spr(n) { if (!cache[n]) cache[n] = FF.raster(n, 1); return cache[n]; }
@@ -173,11 +199,31 @@
     // trees
     add('tree', 96, 45); add('pine', 128, 49);
     add('tree', 158, 46, { flip: true }); add('tree', 300, 47); add('apple', 332, 45, { flip: true });
-    add('pine', 362, 50); add('tree', 392, 46); add('tree', 414, 54, { flip: true });
+    add('pine', 362, 50); add('tree', 380, 60); add('tree', 400, 66, { flip: true }); // was 392,46 / 414,54 — sat in water past the island's tapering right tip
     add('tree', 200, 66, { flip: true }); add('pine', 258, 72); add('apple', 150, 82); add('tree', 360, 86); add('pine', 408, 98);
+    // right-side forest — the island's right edge grew a lot when it was
+    // enlarged for the field, opening up room here. Mixes all 3 tree types
+    // (round/pine/apple) with real gaps between clumps, not a solid wall.
+    add('pine', 345, 100); add('apple', 415, 88, { flip: true }); add('tree', 326, 112);
+    add('pine', 400, 120); add('tree', 370, 132, { flip: true });
     // buildings
     add('coop', 95, 86); add('house', 252, 108); add('well', 358, 118);
-    // ---- field planting — natural curated scatter (cute, uncluttered) ----
+    // windmill tucked close behind the barn — cx (222) sits almost inside
+    // the barn's own footprint (barn spans ~201-231), and baseY (44) is
+    // less than the barn's (62) so it draws first in the baseY-sort and
+    // the barn overlaps in front, hiding the tower/base with just the cap
+    // and blades peeking out above the roofline. Placement (art-space)
+    // exposed via FFScene.windmillPlacement below — FarmCanvas.tsx combines
+    // it with FF.windmillHub to animate the blades on top of the cached
+    // static background each frame.
+    const windmillPlacement = { cx: 228, baseY: 52 };
+    add('windmill', windmillPlacement.cx, windmillPlacement.baseY);
+    add('barn', 216, 62); // top-middle of the map, open meadow between the pond cluster and the right-side forest
+    // dock — juts out from the SE shore into open water past the forest
+    // (island's edge there is high enough up (~y139) that the dock's own
+    // lower rows, drawn below its baseY, land past it in water).
+    add('dock', 380, 152);
+    // ---- field planting — organized rows (was a naturalistic scatter) ----
     (function () {
       // little soil mound under a planted seedling
       function mound(cx, by) {
@@ -188,37 +234,57 @@
         c.restore();
       }
       function plant(name, cx, by, opt) { mound(cx, by); add(name, cx, by, opt); }
-      // golden wheat bundles
-      add('wheat', 174, 124); add('wheat', 196, 121, { flip: true }); add('wheat', 250, 119);
-      // seedlings on mounds
-      plant('sprout', 216, 129); plant('sprout', 236, 141, { flip: true }); plant('sprout', 270, 134);
-      plant('sprout', 182, 147); plant('carrot', 228, 151, { flip: true }); plant('carrot', 286, 147);
-      // leafy crops (sit directly)
-      add('crop2', 208, 143, { flip: true }); add('crop2', 258, 149); add('crop2', 162, 138);
-      // tall grass tufts for softness
-      add('tallgrass', 244, 131); add('tallgrass', 200, 151, { flip: true }); add('tallgrass', 278, 120);
-      // sunflowers stand at the back corners
-      add('sunflower', 158, 120); add('sunflower', 300, 122, { flip: true });
-      // scarecrow at the back
-      add('scarecrow', 226, 116);
+      const cols = [166, 186, 206, 226, 246, 266, 286]; // 7 evenly-spaced columns
+      // row 1 — wheat / sprout alternating
+      add('wheat', cols[0], 111); plant('sprout', cols[1], 112);
+      add('wheat', cols[2], 111); plant('sprout', cols[3], 112);
+      add('wheat', cols[4], 111); plant('sprout', cols[5], 112);
+      add('wheat', cols[6], 111);
+      // row 2 — carrots flanking the scarecrow at dead center
+      plant('carrot', cols[0], 126, { flip: true }); plant('carrot', cols[1], 126);
+      add('tallgrass', cols[2], 124); add('scarecrow', cols[3], 126); add('tallgrass', cols[4], 124, { flip: true });
+      plant('carrot', cols[5], 126); plant('carrot', cols[6], 126, { flip: true });
+      // row 3 — leafy crop2
+      add('crop2', cols[0], 141); add('crop2', cols[1], 141, { flip: true });
+      add('crop2', cols[2], 141); add('crop2', cols[3], 141, { flip: true });
+      add('crop2', cols[4], 141); add('crop2', cols[5], 141, { flip: true });
+      add('crop2', cols[6], 141);
+      // sunflowers stand guard at the back corners
+      add('sunflower', 164, 106); add('sunflower', 288, 106, { flip: true });
     })();
     add('sign', 144, 142);
-    // post-and-rail fence following the field's front edge
+    // post-and-rail fence — loops around the field's right/bottom/left
+    // sides only. Top edge + top-right corner both left open (the corner
+    // was still catching the road on its way past) since the road runs
+    // right along there — a fence there would block/overlap it.
     (function () {
-      for (let i = 0; i <= 9; i++) {
-        const t = i / 9, x = field.cx - field.rx + 8 + t * (field.rx * 2 - 16);
-        const yy = field.cy + field.ry + 2 - Math.sin(t * Math.PI) * 2;
-        add('fence', x, yy);
+      const pad = 6; // fence sits just outside the soil edge
+      const x = field.fx - pad, y = field.fy - pad, w = field.fw + pad * 2, h = field.fh + pad * 2, r = field.fr + pad;
+      const sw = w - 2 * r, sh = h - 2 * r, arc = (Math.PI / 2) * r;
+      const perim = 2 * sw + 2 * sh + 4 * arc;
+      const N = 34, gapStart = 0, gapEnd = (sw + arc) / perim; // top edge + top-right corner
+      for (let i = 0; i < N; i++) {
+        const t = i / N;
+        if (t >= gapStart && t < gapEnd) continue; // entrance opening
+        const [px, py] = roundedRectPoint(x, y, w, h, r, t);
+        add('fence', px, py);
       }
     })();
     // decor
     add('bush', 40, 80); add('bush', 360, 66); add('bush', 405, 108); add('bush', 24, 112, { flip: true }); add('bush', 128, 118, { flip: true });
     add('flowers', 60, 118); add('flowers', 120, 138, { flip: true }); add('flowers', 345, 140); add('flowers', 390, 124, { flip: true }); add('flowers', 330, 112);
+    // more bush/flowers around the pond (left side)
+    add('bush', 50, 56); add('bush', 66, 96, { flip: true });
+    add('flowers', 66, 48); add('flowers', 35, 64); add('flowers', 48, 92, { flip: true });
     add('mushroom', 108, 116); add('mushroom', 388, 94, { flip: true });
     add('rock', 26, 140); add('rock', 398, 142, { flip: true }); add('rock', 178, 58);
     add('log', 70, 132, { flip: true }); add('log', 340, 138);
     add('chest', 118, 90, { flip: true }); add('chest', 288, 108);
-    add('hay', 116, 98); add('hay', 132, 100, { flip: true });
+    // one grouped hay pile, up and to the right of the coop (95,86), the
+    // left house — was two separate piles, the lower one sitting right on
+    // the road (removed, merged in here instead)
+    add('hay', 112, 72); add('hay', 122, 75, { flip: true });
+    add('hay', 106, 78); add('hay', 128, 70, { flip: true });
     add('lantern', 272, 104);
     add('tallgrass', 300, 150, { flip: true }); add('tallgrass', 95, 150, { flip: true }); add('tallgrass', 410, 120); add('tallgrass', 55, 86);
     add('apple', 376, 104, { flip: true }); add('apple', 392, 112); add('bush', 406, 120, { flip: true });
@@ -231,6 +297,12 @@
     add('lily', 60, 50); add('lily', 76, 53, { flip: true }); add('reeds', 46, 49); add('reeds', 88, 49, { flip: true });
     add('lily', 10, 42); add('lily', 426, 72, { flip: true }); add('lily', 220, 12); add('lily', 300, 156, { flip: true });
     add('reeds', 16, 150); add('reeds', 420, 30); add('rock', 8, 82, { flip: true }); add('rock', 428, 120);
+    // lotus leaves scattered on the open water in the 4 corners (the only
+    // spots with enough clearance from the island's coastline)
+    add('lotus', 25, 25); add('lotusleaf', 60, 20, { flip: true });
+    add('lotusleaf', 395, 28, { flip: true });
+    add('lotus', 415, 145, { flip: true }); add('lotus', 370, 148, { flip: true });
+    add('lotusleaf', 35, 140);
 
     items.sort((a, b) => a.baseY - b.baseY); items.forEach(drawSprite);
 
@@ -257,6 +329,16 @@
     oc.globalAlpha = 0.025; oc.fillStyle = '#ffffff';
     for (let y = 0; y < OUT_H; y += 6) oc.fillRect(0, y, OUT_W, 1);
     oc.globalAlpha = 1;
+
+    // expose windmill placement (art-space) for the animated blades overlay
+    window.FFScene.windmillPlacement = windmillPlacement;
+
+    // expose every placed item (art-space name/cx/baseY/flip) so
+    // FarmCanvas.tsx can build ground-animal obstacle regions and the
+    // random top-layer occlusion set without hand-duplicating positions
+    // here. flip is included so a top-layer redraw matches the orientation
+    // already baked into the background.
+    window.FFScene.sceneItems = items.map((it) => ({ name: it.name, cx: it.cx, baseY: it.baseY, flip: !!it.flip }));
 
     return canvas;
   }

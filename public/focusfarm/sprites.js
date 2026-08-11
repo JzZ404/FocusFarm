@@ -136,10 +136,17 @@
     periwinkle: { Rl: '#b8a8d0', Rm: '#9080ac', Rd: '#6b577f' },
     teal:       { Rl: '#abdacf', Rm: '#7cb6aa', Rd: '#538177' },
     rose:       { Rl: '#e6bac6', Rm: '#cc8d9d', Rd: '#9c6270' },
+    slate:      { Rl: '#9fb0bd', Rm: '#71828f', Rd: '#4a5860' }, // for the barn
+  };
+  // wall wood-tone presets — 'tan' is the original house/coop look, unchanged.
+  const WALLS = {
+    tan:  { wl: '#e2c094', wm: '#c2925f', wd: '#8a5e3c' },
+    barn: { wl: '#d9a58c', wm: '#bd7c5c', wd: '#8a5843' }, // barn red — muted to match the rest of the map's pastel palette (was too saturated)
   };
   function buildCabin(opt) {
     opt = opt || {};
     const roof = ROOFS[opt.roof || 'periwinkle'];
+    const wall = WALLS[opt.wall || 'tan'];
     let cached = null;
     function build() {
       const w = 28, h = 31;
@@ -149,7 +156,7 @@
       const rect = (px, py, pw, ph, c) => { x.fillStyle = c; x.fillRect(px, py, pw, ph); };
       const C = {
         cream: '#fbeece', creamD: '#ecd9ac',
-        wl: '#e2c094', wm: '#c2925f', wd: '#8a5e3c', dark: '#5a3f2c',
+        wl: wall.wl, wm: wall.wm, wd: wall.wd, dark: '#5a3f2c',
         gl: '#cfe9e6', gm: '#84b9b8', knob: '#f3d96a',
       };
       // ----- BODY -----
@@ -195,6 +202,159 @@
     fn.__w = 28; fn.__h = 31; fn.__proc = true; return fn;
   }
 
+  // ---------- procedural barn — dedicated shape (not a recolored cabin):
+  // gambrel roof (dominates the silhouette, unlike the cabin's smaller
+  // rounded roof), a cross-braced hayloft window on the gable, and double
+  // X-braced barn doors instead of a single round-top door. Same drawing
+  // primitives/technique as buildCabin (rect/set, striped roof, cream trim)
+  // and the same WALLS.barn palette, so it still reads as part of the same
+  // family — just a different building type, per reference image. ----------
+  function buildBarn() {
+    let cached = null;
+    function build() {
+      const w = 30, h = 34;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+      const set = (px, py, c) => { x.fillStyle = c; x.fillRect(px, py, 1, 1); };
+      const rect = (px, py, pw, ph, c) => { x.fillStyle = c; x.fillRect(px, py, pw, ph); };
+      const wall = WALLS.barn;
+      // monochrome barn-red roof (same hue family as the walls, darker) —
+      // the reference barn's roof and walls are both red, differentiated
+      // by shading and white trim, not a contrasting roof hue. Muted to
+      // match the walls (was too saturated relative to the rest of the map).
+      const roofC = { Rl: '#c99a86', Rm: '#a4735c', Rd: '#77503e' };
+      const C = {
+        cream: '#fbeece', creamD: '#ecd9ac',
+        wl: wall.wl, wm: wall.wm, wd: wall.wd, dark: '#4a3428',
+      };
+      // ----- BODY -----
+      const bx = 6, bw = 18, by = 21, bh = 9;
+      rect(bx, by, bw, bh, C.wm);
+      for (let py = by + 2; py < by + bh; py += 2) rect(bx, py, bw, 1, C.wl); // denser plank banding — corrugated-siding feel
+      rect(bx, by, 1, bh, C.wd); rect(bx + bw - 1, by, 1, bh, C.wd);
+      rect(bx, by + bh - 1, bw, 1, C.wd);
+      // small side window (right side only, like the reference's lower window)
+      rect(bx + bw - 7, by + 2, 5, 5, C.wd);
+      rect(bx + bw - 6, by + 3, 3, 3, C.dark);
+      // ----- DOUBLE X-BRACED BARN DOORS -----
+      const dw = 6, dh = bh - 1, dx1 = Math.round(bx + bw / 2 - dw), dy = by + 1;
+      function doorPanel(px) {
+        rect(px, dy, dw, dh, C.wd);
+        rect(px + 1, dy, dw - 2, dh, C.dark);
+        for (let i = 0; i < dh; i++) {
+          const t = i / (dh - 1);
+          set(Math.round(px + 1 + t * (dw - 3)), dy + i, C.wl);
+          set(Math.round(px + dw - 2 - t * (dw - 3)), dy + i, C.wl);
+        }
+      }
+      doorPanel(dx1); doorPanel(dx1 + dw);
+      rect(dx1 + dw - 1, dy, 1, dh, C.cream); // white divider between panels
+      // ----- GAMBREL ROOF (tall, dominates the silhouette) -----
+      const cxc = 15;
+      for (let ry = 3; ry <= 20; ry++) {
+        const t = (ry - 3) / 17;
+        const half = Math.round(1 + t * 13);
+        for (let rx = cxc - half; rx <= cxc + half; rx++) {
+          let col;
+          if (rx === cxc - half || rx === cxc + half || ry === 20) col = roofC.Rd;
+          else col = ((rx - (cxc - half)) % 3 === 2) ? roofC.Rm : roofC.Rl;
+          set(rx, ry, col);
+        }
+      }
+      rect(12, 2, 6, 1, roofC.Rl); rect(13, 1, 4, 1, roofC.Rm); // ridge cap
+      // ----- HAYLOFT WINDOW (cross-braced), high on the gable -----
+      const hx = cxc - 3, hy = 10, hs = 6;
+      rect(hx - 1, hy - 1, hs + 2, hs + 2, C.cream);
+      rect(hx, hy, hs, hs, C.dark);
+      for (let i = 0; i < hs; i++) { set(hx + i, hy + i, C.wl); set(hx + hs - 1 - i, hy + i, C.wl); }
+      // ----- CREAM EAVE -----
+      rect(2, 19, w - 4, 2, C.cream); rect(2, 21, w - 4, 1, C.creamD);
+      // ----- STILTS -----
+      rect(bx + 2, by + bh, 2, 3, C.wd); rect(bx + bw - 4, by + bh, 2, 3, C.wd);
+      cached = cv; return cv;
+    }
+    const fn = () => cached || build();
+    fn.__w = 30; fn.__h = 34; fn.__proc = true; return fn;
+  }
+
+  // ---------- procedural windmill — split into a static base (tower + cap
+  // + mast) and a separate blades sprite, so the blades can be redrawn
+  // with a canvas rotation each animation frame (FarmCanvas.tsx) instead
+  // of being baked into the once-rendered, cached scene background. Same
+  // trig-based line technique as the fence-loop math in scene.js; reuses
+  // existing wood tones (C.wl/wm/wd) and stone tones — no new colors. ----
+  const WINDMILL_HUB = { x: 13, y: 14 }; // hub position within the 26x36 base canvas
+  function buildWindmillBase() {
+    let cached = null;
+    function build() {
+      // h=36 matches the tower's actual base (towerBot below) exactly — it
+      // was 44 (8px of empty padding under the tower), which put the base
+      // sprite's bottom-edge anchor 8px below where the tower visually
+      // ends, floating it above its own ground shadow.
+      const w = 26, h = 36;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+      const set = (px, py, c) => { x.fillStyle = c; x.fillRect(px, py, 1, 1); };
+      const rect = (px, py, pw, ph, c) => { x.fillStyle = c; x.fillRect(px, py, pw, ph); };
+      const C = {
+        wl: '#e2c094', wm: '#c2925f', wd: '#8a5e3c', dark: '#5a3f2c',
+      };
+      const cxc = 13;
+      // ----- TOWER (tapered — narrow at top, wide at base) -----
+      const towerTop = 22, towerBot = 36;
+      for (let ty = towerTop; ty <= towerBot; ty++) {
+        const t = (ty - towerTop) / (towerBot - towerTop);
+        const half = Math.round(3 + t * 4);
+        rect(cxc - half, ty, half * 2, 1, C.wm);
+        set(cxc - half, ty, C.wd); set(cxc + half - 1, ty, C.wd);
+      }
+      for (let ty = towerTop + 3; ty < towerBot; ty += 4) {
+        const t = (ty - towerTop) / (towerBot - towerTop);
+        const half = Math.round(3 + t * 4);
+        rect(cxc - half + 1, ty, half * 2 - 2, 1, C.wl);
+      }
+      rect(cxc - 2, towerBot - 5, 4, 5, C.dark); // door
+      // ----- CAP -----
+      rect(cxc - 4, towerTop - 3, 8, 3, C.dark);
+      rect(cxc - 3, towerTop - 5, 6, 2, C.dark);
+      rect(cxc - 1, towerTop - 6, 2, 1, C.dark);
+      // ----- MAST stub (blades attach here, drawn separately on top) -----
+      const hx = WINDMILL_HUB.x, hy = WINDMILL_HUB.y;
+      set(hx, hy + 1, C.wd); set(hx, hy + 2, C.wd);
+      cached = cv; return cv;
+    }
+    const fn = () => cached || build();
+    fn.__w = 26; fn.__h = 36; fn.__proc = true; return fn;
+  }
+  // Blades only, centered in their own square canvas so a caller can rotate
+  // around its exact center (ctx.translate(hubX,hubY) + ctx.rotate(angle) +
+  // drawImage centered) without needing to know the internal hub offset.
+  function buildWindmillBlades() {
+    let cached = null;
+    function build() {
+      const w = 34, h = 34, cx = 17, cy = 17; // center = hub
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+      const set = (px, py, c) => { x.fillStyle = c; x.fillRect(px, py, 1, 1); };
+      const C = { stone: '#b6c6b8', stoneD: '#85998c', cream: '#fbeece' };
+      // 4-arm pinwheel, 45°/135°/225°/315°, ~2px thick
+      const L = 13;
+      for (let a = 0; a < 4; a++) {
+        const ang = a * Math.PI / 2 + Math.PI / 4;
+        const dx = Math.cos(ang), dy = Math.sin(ang), px2 = -dy, py2 = dx;
+        const col = (a % 2 === 0) ? C.stone : C.stoneD;
+        for (let s = 2; s <= L; s++) {
+          const bx = cx + dx * s, by = cy + dy * s;
+          set(Math.round(bx), Math.round(by), col);
+          set(Math.round(bx + px2), Math.round(by + py2), col);
+        }
+      }
+      set(cx, cy, C.cream); // hub center
+      cached = cv; return cv;
+    }
+    const fn = () => cached || build();
+    fn.__w = 34; fn.__h = 34; fn.__proc = true; return fn;
+  }
 
   // ---- CHICKEN (faces right) 13x12
   S.chicken = [
@@ -318,9 +478,31 @@
   ];
 
   // ---- HOUSE / FARMHOUSE 32x30
-  // ---- HOUSE / COOP (procedural cabins) ----
+  // ---- HOUSE / COOP (procedural cabins) / BARN (dedicated shape, see buildBarn) ----
   S.house = buildCabin({ roof: 'periwinkle' });
   S.coop = buildCabin({ roof: 'teal' });
+  S.barn = buildBarn();
+  S.windmill = buildWindmillBase();
+  S.windmillBlades = buildWindmillBlades();
+
+  // ---- DOCK 22x14 (wood-plank pier — same 3-tone o/W/w technique as the
+  // boat below, extended into a flat deck with posts standing in water) ----
+  S.dock = [
+    "                      ",
+    " oooooooooooooooooooo",
+    " oWWWWWWWWWWWWWWWWWWo",
+    " oWWWWWWWWWWWWWWWWWWo",
+    " owwwwwwwwwwwwwwwwwwo",
+    " oWWWWWWWWWWWWWWWWWWo",
+    " oWWWWWWWWWWWWWWWWWWo",
+    " owwwwwwwwwwwwwwwwwwo",
+    " oooooooooooooooooooo",
+    "   o        o     o  ",
+    "   o        o     o  ",
+    "  bBb      bBb   bBb ",
+    "   b        b     b  ",
+    "                      ",
+  ];
 
   // ---- BOAT 21x11 (cute wooden rowboat) ----
   S.boat = [
@@ -577,6 +759,29 @@
     "          ",
   ];
 
+  // ---- LOTUS (round pad + flower) 12x8, and LOTUS LEAF (pad only) 12x8 —
+  // bigger/rounder than the lily pad above, scattered on open water.
+  S.lotus = [
+    "            ",
+    "     q      ",
+    "    qQq     ",
+    "   lLLLLl   ",
+    "  lLLLLLLl  ",
+    "  lLLkLLLl  ",
+    "   lLLLLl   ",
+    "    llll    ",
+  ];
+  S.lotusleaf = [
+    "            ",
+    "            ",
+    "   lLLLLl   ",
+    "  lLLLLLLl  ",
+    "  lLLkLLLl  ",
+    "   lLLLLl   ",
+    "    llll    ",
+    "            ",
+  ];
+
   // ---- TALL GRASS 12x6
   S.tallgrass = [
     "            ",
@@ -664,5 +869,5 @@
     return { w: Math.max.apply(null, spr.map((r) => r.length)), h: spr.length };
   }
 
-  window.FF = { PAL, sprites: S, url, dims, toCanvas, raster: rasterName };
+  window.FF = { PAL, sprites: S, url, dims, toCanvas, raster: rasterName, windmillHub: WINDMILL_HUB };
 })();
