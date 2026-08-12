@@ -107,18 +107,23 @@
     })(78, 66, 18, 9);
 
     // ---- moored rowboat (bottom-left water) ----
-    (function (bx, by) {
-      // mooring post on the shore + crisp rope to the boat
-      c.fillStyle = COL.woodD; c.fillRect(bx - 26, by - 16, 2, 7);
-      c.fillStyle = COL.wood; c.fillRect(bx - 26, by - 16, 2, 2);
+    // Boat flipped to the post's LEFT side (was floating to its right) —
+    // px,py anchors the post only, which is unchanged; the boat/rope/foam
+    // are mirrored off it, and the hull sprite itself is drawn flipped too.
+    (function (px, py) {
+      // mooring post on the shore (unchanged)
+      c.fillStyle = COL.woodD; c.fillRect(px - 26, py - 16, 2, 7);
+      c.fillStyle = COL.wood; c.fillRect(px - 26, py - 16, 2, 2);
+      // rope from the post down to the boat — mirrored, now heads down-left
       c.fillStyle = '#9a6a42';
-      for (let i = 0; i <= 14; i++) { const t = i / 14; c.fillRect(Math.round((bx - 25) + 16 * t), Math.round((by - 13) + 11 * t), 1, 1); }
+      for (let i = 0; i <= 14; i++) { const t = i / 14; c.fillRect(Math.round((px - 25) - 16 * t), Math.round((py - 13) + 11 * t), 1, 1); }
+      const bx = px - 52, by = py; // boat position, mirrored to the post's left
       // foam ring around the hull
       c.fillStyle = COL.foam;
       for (let i = 0; i < 46; i++) { const a = f() * Math.PI * 2; const rx = 11 + ri(0, 2), ry = 6 + ri(0, 1); c.fillRect(Math.round(bx + Math.cos(a) * rx), Math.round(by + 3 + Math.sin(a) * ry), 1, 1); }
-      // hull
+      // hull, mirrored horizontally
       const s = FF.raster('boat', 1);
-      c.drawImage(s, Math.round(bx - s.width / 2), Math.round(by - s.height / 2));
+      c.save(); c.translate(bx + s.width / 2, by - s.height / 2); c.scale(-1, 1); c.drawImage(s, 0, 0); c.restore();
     })(74, 150);
 
     // ---- dirt trails ----
@@ -150,6 +155,11 @@
     trail([[93, 94], [145, 90], [200, 90], [252, 94], [296, 100], [352, 119], [392, 110]], 7);
     // (removed a second stub trail that sat entirely inside the field —
     // redundant with the field's own soil texture, and part of the overlap)
+
+    // small curvy path branching off the main dirt trail up to the barn's
+    // front step — same packed-dirt material/color as the main road (just
+    // narrower), not a separate stone material.
+    trail([[205, 89], [201, 80], [208, 71], [217, 64]], 4);
 
     // ---- field (rounded-rect soil patch, was a full oval) ----
     const field = (function () {
@@ -192,7 +202,16 @@
     function drawSprite(it) {
       const s = spr(it.name), w = s.width, h = s.height;
       const x = Math.round(it.cx - w / 2), y = Math.round(it.baseY - h);
-      c.save(); c.globalAlpha = 0.12; c.fillStyle = '#46502f'; blob(it.cx, it.baseY - 1, w * 0.36, 2.2); c.fill(); c.restore();
+      if (it.shadow === 'water') {
+        // ripple, not a ground shadow — a soft water-toned ring (same
+        // language as the boat's foam ring) so items standing in water
+        // read as sitting in water, not as if grass were under them.
+        c.save(); c.globalAlpha = 0.5; c.fillStyle = COL.waterD; blob(it.cx, it.baseY - 1, w * 0.4, 2.4); c.fill(); c.restore();
+        c.save(); c.globalAlpha = 0.35; c.fillStyle = COL.foam; blob(it.cx, it.baseY - 1, w * 0.4, 2.4); c.fill();
+        c.clip(); for (let i = 0; i < 10; i++) { const px = it.cx + ri(-w * 0.4, w * 0.4), py = it.baseY - 1 + ri(-2, 2); c.fillRect(px, py, 1, 1); } c.restore();
+      } else {
+        c.save(); c.globalAlpha = 0.12; c.fillStyle = '#46502f'; blob(it.cx, it.baseY - 1, w * 0.36, 2.2); c.fill(); c.restore();
+      }
       if (it.flip) { c.save(); c.translate(x + w, y); c.scale(-1, 1); c.drawImage(s, 0, 0); c.restore(); } else c.drawImage(s, x, y);
     }
 
@@ -200,7 +219,9 @@
     add('tree', 96, 45); add('pine', 128, 49);
     add('tree', 158, 46, { flip: true }); add('tree', 300, 47); add('apple', 332, 45, { flip: true });
     add('pine', 362, 50); add('tree', 380, 60); add('tree', 400, 66, { flip: true }); // was 392,46 / 414,54 — sat in water past the island's tapering right tip
-    add('tree', 200, 66, { flip: true }); add('pine', 258, 72); add('apple', 150, 82); add('tree', 360, 86); add('pine', 408, 98);
+    add('tree', 200, 66, { flip: true }); add('pine', 258, 72); add('apple', 170, 88); add('tree', 360, 86); add('pine', 408, 98);
+    // (apple nudged from 150,82 -> 170,88 to open a clear pocket beside the
+    // hay pile for the tractor, without crowding the barn/windmill cluster)
     // right-side forest — the island's right edge grew a lot when it was
     // enlarged for the field, opening up room here. Mixes all 3 tree types
     // (round/pine/apple) with real gaps between clumps, not a solid wall.
@@ -219,10 +240,13 @@
     const windmillPlacement = { cx: 228, baseY: 52 };
     add('windmill', windmillPlacement.cx, windmillPlacement.baseY);
     add('barn', 216, 62); // top-middle of the map, open meadow between the pond cluster and the right-side forest
-    // dock — juts out from the SE shore into open water past the forest
-    // (island's edge there is high enough up (~y139) that the dock's own
-    // lower rows, drawn below its baseY, land past it in water).
-    add('dock', 380, 152);
+    // L-shaped dock on the top (north) coastline, between the barn (x=216)
+    // and the right-side forest (x>=300) — the water band up here is thin,
+    // so it's a compact L instead of a long straight pier. baseY anchors
+    // the post row at the bottom of the sprite (see S.dockL); kept clear of
+    // the coastline (grass starts ~y11-17 across this span) so the posts
+    // read as standing in open water, not planted on the shore.
+    add('dockL', 268, 13, { shadow: 'water' });
     // ---- field planting — organized rows (was a naturalistic scatter) ----
     (function () {
       // little soil mound under a planted seedling
@@ -277,7 +301,7 @@
     add('bush', 50, 56); add('bush', 66, 96, { flip: true });
     add('flowers', 66, 48); add('flowers', 35, 64); add('flowers', 48, 92, { flip: true });
     add('mushroom', 108, 116); add('mushroom', 388, 94, { flip: true });
-    add('rock', 26, 140); add('rock', 398, 142, { flip: true }); add('rock', 178, 58);
+    add('rock', 178, 58);
     add('log', 70, 132, { flip: true }); add('log', 340, 138);
     add('chest', 118, 90, { flip: true }); add('chest', 288, 108);
     // one grouped hay pile, up and to the right of the coop (95,86), the
@@ -285,10 +309,16 @@
     // the road (removed, merged in here instead)
     add('hay', 112, 72); add('hay', 122, 75, { flip: true });
     add('hay', 106, 78); add('hay', 128, 70, { flip: true });
+    // parked right beside the hay pile, in the pocket cleared by nudging
+    // the apple tree above.
+    add('locomotive', 144, 76);
     add('lantern', 272, 104);
     add('tallgrass', 300, 150, { flip: true }); add('tallgrass', 95, 150, { flip: true }); add('tallgrass', 410, 120); add('tallgrass', 55, 86);
     add('apple', 376, 104, { flip: true }); add('apple', 392, 112); add('bush', 406, 120, { flip: true });
-    add('flowers', 372, 124); add('tallgrass', 388, 128, { flip: true }); add('mushroom', 360, 118);
+    add('flowers', 372, 124); add('tallgrass', 388, 128, { flip: true });
+    // more mushrooms scattered through the right-side forest
+    add('mushroom', 312, 66); add('mushroom', 350, 86, { flip: true });
+    add('mushroom', 393, 76); add('mushroom', 330, 144, { flip: true });
     // sprinkle a few details into the open meadow
     add('rock', 240, 74); add('rock', 312, 70, { flip: true });
     add('tallgrass', 196, 70); add('tallgrass', 268, 60, { flip: true }); add('tallgrass', 322, 66);
@@ -296,7 +326,7 @@
     add('sprout', 188, 102); add('sprout', 332, 96, { flip: true }); add('mushroom', 250, 86);
     add('lily', 60, 50); add('lily', 76, 53, { flip: true }); add('reeds', 46, 49); add('reeds', 88, 49, { flip: true });
     add('lily', 10, 42); add('lily', 426, 72, { flip: true }); add('lily', 220, 12); add('lily', 300, 156, { flip: true });
-    add('reeds', 16, 150); add('reeds', 420, 30); add('rock', 8, 82, { flip: true }); add('rock', 428, 120);
+    add('reeds', 16, 150); add('reeds', 420, 30);
     // lotus leaves scattered on the open water in the 4 corners (the only
     // spots with enough clearance from the island's coastline)
     add('lotus', 25, 25); add('lotusleaf', 60, 20, { flip: true });
@@ -311,19 +341,6 @@
     const oc = canvas.getContext('2d');
     oc.imageSmoothingEnabled = false;
     oc.drawImage(art, 0, 0, AW, AH, 0, 0, OUT_W, OUT_H);
-
-    // ---- FOCUS FARM logo (drawn crisp at output res) ----
-    const pix = (window.FFScene && FFScene._fontReady) ? '"Pixelify Sans", monospace' : 'monospace';
-    oc.textBaseline = 'top';
-    function logoLine(txt, x, y, size) {
-      oc.font = '700 ' + size + 'px ' + pix;
-      oc.fillStyle = 'rgba(60,70,45,0.22)'; oc.fillText(txt, x + 9, y + 11);      // soft shadow
-      oc.fillStyle = '#6f9a5a'; oc.fillText(txt, x + 5, y + 6);                    // green drop
-      oc.fillStyle = COL.cream; oc.fillText(txt, x, y);                            // cream fill
-      oc.lineWidth = 5; oc.strokeStyle = COL.ink; oc.strokeText(txt, x, y);        // outline
-    }
-    logoLine('FOCUS', 150, 70, 150);
-    logoLine('FARM', 176, 214, 150);
 
     // ---- very faint scanline sheen ----
     oc.globalAlpha = 0.025; oc.fillStyle = '#ffffff';

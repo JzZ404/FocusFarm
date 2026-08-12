@@ -85,9 +85,22 @@ const TOP_LAYER_CHANCE = 0.3; // ~30% of eligible instances become true top-laye
 
 // Sprite categories eligible for either treatment. Small ground clutter
 // (fence, rocks, flowers, etc.) is left alone entirely either way.
+// "windmill" is deliberately NOT here — its depth relationship with the
+// barn (windmill drawn behind, per scene.js's fixed baseY ordering) is a
+// one-off intentional composition, not something the general random
+// top-layer/reroute split should be allowed to override. It was in this
+// set before and got randomly promoted to top-layer, which redrew it over
+// the barn every frame and broke that relationship.
 const TREE_NAMES = new Set(["tree", "pine", "apple", "bush"]);
-const BUILDING_NAMES = new Set(["house", "coop", "barn", "well", "dock", "windmill"]);
+const BUILDING_NAMES = new Set(["house", "coop", "barn", "well", "dockL"]);
 const CROP_NAMES = new Set(["wheat", "sprout", "carrot", "crop2", "sunflower"]);
+
+// Always drawn on layer 3 (top-layer), never layer 1 (reroute) — the
+// opposite special-case from windmill above: this one always wins the
+// seededChance roll instead of always losing it. It's a small, thin prop
+// parked in the open, not a landmark other items are composed against, so
+// there's no reason to leave it to the usual ~30% coin flip.
+const ALWAYS_TOP_LAYER = new Set(["locomotive"]);
 
 // Fraction of each sprite's height (from the top) used for movement-block
 // (layer 1) or occlusion-redraw (layer 3) — same numbers serve both, since
@@ -455,9 +468,10 @@ export default function FarmCanvas() {
           const isTree = TREE_NAMES.has(it.name);
           const isBuilding = BUILDING_NAMES.has(it.name);
           const isCrop = CROP_NAMES.has(it.name);
-          if (!isTree && !isBuilding && !isCrop) continue;
+          const alwaysTop = ALWAYS_TOP_LAYER.has(it.name);
+          if (!isTree && !isBuilding && !isCrop && !alwaysTop) continue;
 
-          if (seededChance(it.name, it.cx, it.baseY, TOP_LAYER_CHANCE)) {
+          if (alwaysTop || seededChance(it.name, it.cx, it.baseY, TOP_LAYER_CHANCE)) {
             // Layer 3: no movement restriction at all — the redraw below is
             // what keeps it looking right, so animals can walk freely near it.
             const img = rasterOf(it.name);

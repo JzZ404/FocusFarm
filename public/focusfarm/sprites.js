@@ -356,6 +356,73 @@
     fn.__w = 34; fn.__h = 34; fn.__proc = true; return fn;
   }
 
+  // ---------- procedural steam locomotive — a small farmyard vehicle prop.
+  // Full reconstruction (not a re-skin of the old tractor/cart): compact
+  // side-view toy locomotive — charcoal cabin + chimney toward the rear,
+  // a rust-orange boiler toward the front, two wheels underneath. Flat
+  // solid-color blocks with hard pixel edges only (each shape gets at most
+  // a 1px light-top/dark-bottom edge, same technique as every other sprite
+  // in this file — no gradients or anti-aliasing). Colors are muted/
+  // desaturated versions of the rust-orange/charcoal family (not the same
+  // hexes as the barn/other buildings) so it doesn't pop out against the
+  // soft pastel grass the way the first pass's more saturated tones did. ----
+  function buildLocomotive() {
+    let cached = null;
+    function build() {
+      // v2 — shorter boiler (shrunk in from the right, so the cabin/rear
+      // end keeps its position and the whole thing reads more compact and
+      // left-weighted) and a smaller front/right wheel instead of a
+      // matched pair.
+      const w = 26, h = 22;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+      const set = (px, py, c) => { x.fillStyle = c; x.fillRect(px, py, 1, 1); };
+      const rect = (px, py, pw, ph, c) => { x.fillStyle = c; x.fillRect(px, py, pw, ph); };
+      const circle = (cxp, cyp, r, c) => {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (dx * dx + dy * dy <= r * r + r * 0.3) set(cxp + dx, cyp + dy, c);
+        }
+      };
+      const C = {
+        body: '#5c5248', bodyD: '#453d34', bodyL: '#79705f',
+        rust: '#b8815f', rustD: '#8a5c3f', rustL: '#d1a37e',
+        glass: '#86b9bc', glassL: '#c8e6e5',
+        trim: '#4a545c',
+      };
+      // ----- WHEELS (drawn first — cabin/boiler sit on top, overlapping
+      // only the top few rows, so most of each wheel stays visible below
+      // the body). Rear (left) wheel is the full size; front (right) wheel
+      // is smaller — its center sits lower so both still touch the same
+      // ground line. Clearly separated by a gap of undercarriage between
+      // them. Outer charcoal rim, rust inner hub, small dark center. -----
+      const wr = 6, wy = 16, rearX = 6;
+      const wr2 = 4, wy2 = 17, frontX = 20;
+      circle(rearX, wy, wr, C.bodyD); circle(rearX, wy, wr - 3, C.rust); circle(rearX, wy, 1, C.trim);
+      circle(frontX, wy2, wr2, C.bodyD); circle(frontX, wy2, wr2 - 2, C.rust); circle(frontX, wy2, 1, C.trim);
+      rect(0, 21, 26, 1, C.trim); // ground shadow line under both wheels
+      // ----- UNDERCARRIAGE — small dark blue/gray strip visible under the
+      // boiler, in the gap between the two wheels -----
+      rect(12, 13, 4, 3, C.trim);
+      // ----- BOILER — horizontal rust-orange block, front/right (shortened
+      // from the first pass — was 19px, now 14px) -----
+      rect(9, 7, 14, 7, C.rust);
+      rect(9, 7, 14, 1, C.rustL); rect(9, 13, 14, 1, C.rustD); rect(22, 7, 1, 7, C.rustD);
+      // ----- CABIN — short charcoal block, rear/left -----
+      rect(2, 5, 9, 8, C.body);
+      rect(2, 5, 9, 1, C.bodyL); rect(2, 12, 9, 1, C.bodyD);
+      rect(2, 5, 1, 8, C.bodyD); rect(10, 5, 1, 8, C.bodyD);
+      // window — small light blue-gray rectangle in the cabin
+      rect(4, 7, 4, 4, C.glass); rect(4, 7, 4, 1, C.glassL); rect(4, 7, 1, 4, C.glassL);
+      // ----- CHIMNEY — tall narrow charcoal stack above the cabin, with a
+      // wider cap at the top -----
+      rect(2, 0, 5, 2, C.body); rect(2, 0, 5, 1, C.bodyL); // wide cap
+      rect(3, 2, 3, 3, C.body); rect(3, 4, 3, 1, C.bodyD); // narrow shaft down to the cabin roofline
+      cached = cv; return cv;
+    }
+    const fn = () => cached || build();
+    fn.__w = 26; fn.__h = 22; fn.__proc = true; return fn;
+  }
+
   // ---- CHICKEN (faces right) 13x12
   S.chicken = [
     "       x     ",
@@ -484,24 +551,28 @@
   S.barn = buildBarn();
   S.windmill = buildWindmillBase();
   S.windmillBlades = buildWindmillBlades();
+  S.locomotive = buildLocomotive();
 
-  // ---- DOCK 22x14 (wood-plank pier — same 3-tone o/W/w technique as the
-  // boat below, extended into a flat deck with posts standing in water) ----
-  S.dock = [
-    "                      ",
-    " oooooooooooooooooooo",
-    " oWWWWWWWWWWWWWWWWWWo",
-    " oWWWWWWWWWWWWWWWWWWo",
-    " owwwwwwwwwwwwwwwwwwo",
-    " oWWWWWWWWWWWWWWWWWWo",
-    " oWWWWWWWWWWWWWWWWWWo",
-    " owwwwwwwwwwwwwwwwwwo",
-    " oooooooooooooooooooo",
-    "   o        o     o  ",
-    "   o        o     o  ",
-    "  bBb      bBb   bBb ",
-    "   b        b     b  ",
-    "                      ",
+  // ---- L-SHAPED DOCK 34x13 (wood-plank pier — same 3-tone o/W/w technique
+  // as the boat below) for the north-facing (top-edge) shore between the
+  // barn and the forest. Posts stand along the BOTTOM edge of the deck
+  // (same convention as a straight pier: legs support the planks from
+  // below), so baseY anchors the sprite's bottom right at the post row and
+  // the deck itself is drawn extending upward from there.
+  S.dockL = [
+    "   ooooooooo                      ",
+    "   oWWWWWWWo                      ",
+    "   oWWWWWWWo                      ",
+    "   owwwwwwwo                      ",
+    "   ooooooooooooooooooooooooooooo  ",
+    "   oWWWWWWWWWWWWWWWWWWWWWWWWWWWo  ",
+    "   oWWWWWWWWWWWWWWWWWWWWWWWWWWWo  ",
+    "   owwwwwwwwwwwwwwwwwwwwwwwwwwwo  ",
+    "   ooooooooooooooooooooooooooooo  ",
+    "        o      o      o      o    ",
+    "       bBb    bBb    bBb    bBb   ",
+    "        b      b      b      b    ",
+    "                                   ",
   ];
 
   // ---- BOAT 21x11 (cute wooden rowboat) ----
