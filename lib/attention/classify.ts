@@ -115,14 +115,6 @@ export interface AttentionState {
   noFaceSinceMs: number | null;
   /** ms timestamp eyes first went closed; null while open. */
   eyesClosedSinceMs: number | null;
-  /** ms timestamp the gaze first pointed down past the inner tolerance;
-   * null while it isn't. Phase 4: gives sustained downward gaze its own
-   * grace period (lookingDownGraceMs), independent of the general
-   * gazeScore ellipse — a brief glance down at the keyboard while typing
-   * and a sustained stare at a phone are geometrically identical to this
-   * classifier (both are "gaze pointed down"), so only *duration*
-   * distinguishes them. See gazeScore's computation for how this is used. */
-  gazeDownSinceMs: number | null;
   /** EMA-smoothed signals. null = not yet initialized this session. */
   emaYaw: number | null;
   emaPitch: number | null;
@@ -168,18 +160,6 @@ export interface AttentionConfig {
   worldDeviationRX: number;
   worldDeviationRDown: number; // dy >= 0 (pitch convention: positive = looking down)
   worldDeviationRUp: number;
-  /** Phase 4: how long a downward gaze deviation is fully forgiven
-   * (treated as 0 for gazeScore's ellipse distance) before it starts
-   * counting at all — glancing down at a keyboard while typing and
-   * staring at a phone look geometrically identical to this classifier
-   * (both are "gaze pointed down"); only sustained duration tells them
-   * apart. Not fit against data — no fixture recorded this specific
-   * behavior; a starting value based on the user's own stated real-world
-   * timing (keyboard glances stay under ~10s even while typing
-   * continuously; phone-looking sustains 10-30s+), meant to be revised
-   * after live testing. Only applies to downward gaze specifically —
-   * sideways/upward deviation is untouched, unaffected by this. */
-  lookingDownGraceMs: number;
   /** Same ellipse treatment for raw (uncalibrated) head pose alone — the
    * "landmarks too extreme to trust" cutoff, independent of calibration.
    * Also the "distance = 1" reference for headScore's soft falloff. */
@@ -281,15 +261,6 @@ export const DEFAULT_CONFIG: AttentionConfig = {
   worldDeviationRX: 1.0,
   worldDeviationRDown: 0.2,
   worldDeviationRUp: 0.1,
-  // Phase 4: two live-tested guesses (10000, then 5000) both came back
-  // "too long" — stopped guessing and asked directly instead. User's
-  // actual keyboard glance duration: ~2s. Set at 3000 (a small buffer
-  // above that, not the bare minimum) so a slightly-longer-than-typical
-  // real glance still doesn't get flagged, while cutting phone-tolerance
-  // time way down from the earlier guesses. Still not fit against any
-  // fixture (none recorded this specific behavior) — a live-feel tuning
-  // value, grounded in a real reported number this time, not a guess.
-  lookingDownGraceMs: 3000,
   headPoseRX: 0.75, // NOT included in the Phase 2 fit, see headScore's comment below
   headPoseRDown: 0.75,
   headPoseRUp: 0.75,
@@ -318,7 +289,6 @@ export function createInitialAttentionState(
     lastFlipMs: null,
     noFaceSinceMs: null,
     eyesClosedSinceMs: null,
-    gazeDownSinceMs: null,
     emaYaw: null,
     emaPitch: null,
     emaEar: null,
@@ -368,11 +338,6 @@ export interface FrameDebug {
   focusStreakMs: number;
   /** Elapsed ms of the current no-face streak (0 while a face is detected). */
   noFaceMs: number;
-  /** Elapsed ms the gaze has been continuously pointed down past the
-   * inner tolerance (0 otherwise) — Phase 4's keyboard-vs-phone dwell
-   * tolerance. Forgiven (doesn't count against gazeScore) below
-   * lookingDownGraceMs. */
-  gazeDownMs: number;
   /** True if this frame's dtMs exceeded config.stallGapMs — every
    * duration-since/smoothing anchor was reset this frame as a result. */
   isStall: boolean;
@@ -767,7 +732,6 @@ export function classifyFrame(
         aboveHighSinceMs: null,
         noFaceSinceMs: null,
         eyesClosedSinceMs: null,
-        gazeDownSinceMs: null,
         emaYaw: null,
         emaPitch: null,
         emaEar: null,
@@ -793,7 +757,6 @@ export function classifyFrame(
         belowLowSinceMs: null,
         aboveHighSinceMs: null,
         noFaceSinceMs,
-        gazeDownSinceMs: null,
         lastFlipMs: flipped ? tNowMs : baseState.lastFlipMs,
       },
       isFocused: focused,
@@ -825,7 +788,6 @@ export function classifyFrame(
         distractStreakMs: 0,
         focusStreakMs: 0,
         noFaceMs,
-        gazeDownMs: 0,
         isStall,
       },
     };
@@ -901,29 +863,6 @@ export function classifyFrame(
   const worldDevMag = Math.hypot(worldDevX, worldDevY);
   const headPoseMag = Math.hypot(emaYaw, emaPitch);
 
-  // Phase 4: sustained-downward-gaze grace period — glancing down at a
-  // keyboard while typing and staring at a phone are geometrically
-  // identical to this classifier (both are "gaze pointed down"); only
-  // duration tells them apart. Tracks how long the down component alone
-  // (ignoring any sideways deviation) has continuously exceeded the inner
-  // tolerance, exactly the same streak-since-timestamp pattern
-  // eyesClosedSinceMs already uses for blink tolerance.
-  const gazeIsDown = worldDevY > 0 && worldDevY / config.worldDeviationRDown > config.softInnerFactor;
-  let gazeDownSinceMs = baseState.gazeDownSinceMs;
-  if (gazeIsDown) {
-    if (gazeDownSinceMs === null) gazeDownSinceMs = tNowMs;
-  } else {
-    gazeDownSinceMs = null;
-  }
-  const gazeDownMs = gazeDownSinceMs === null ? 0 : tNowMs - gazeDownSinceMs;
-  // While forgiven, the down component is zeroed for gazeScore's distance
-  // calculation only — worldDevY/worldDevMag above stay as the true,
-  // unmasked values for debug/diagnostic purposes. Sideways deviation
-  // (worldDevX) is never forgiven by this — a phone held off to the side
-  // while looking down still counts via the X component.
-  const gazeDownForgiven = gazeIsDown && gazeDownMs < config.lookingDownGraceMs;
-  const scoredWorldDevY = gazeDownForgiven ? 0 : worldDevY;
-
   // Phase 3: three independent soft scores (1 = fully fine, 0 = fully
   // failing), combined via min — the weakest dimension still dominates,
   // same as the old AND of three booleans, just continuous now.
@@ -942,7 +881,7 @@ export function classifyFrame(
     config.softOuterFactor
   );
   const gazeScore = smoothFalloff(
-    ellipseDistance(worldDevX, scoredWorldDevY, config.worldDeviationRX, config.worldDeviationRDown, config.worldDeviationRUp),
+    ellipseDistance(worldDevX, worldDevY, config.worldDeviationRX, config.worldDeviationRDown, config.worldDeviationRUp),
     config.softInnerFactor,
     config.softOuterFactor
   );
@@ -978,7 +917,6 @@ export function classifyFrame(
       lastFlipMs: s.lastFlipMs,
       noFaceSinceMs: null,
       eyesClosedSinceMs,
-      gazeDownSinceMs,
       emaYaw,
       emaPitch,
       emaEar,
@@ -1018,7 +956,6 @@ export function classifyFrame(
       distractStreakMs: s.distractStreakMs,
       focusStreakMs: s.focusStreakMs,
       noFaceMs: 0,
-      gazeDownMs,
       isStall,
     },
   };
