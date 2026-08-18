@@ -281,13 +281,15 @@ export const DEFAULT_CONFIG: AttentionConfig = {
   worldDeviationRX: 1.0,
   worldDeviationRDown: 0.2,
   worldDeviationRUp: 0.1,
-  // Phase 4: started at 10000 (the user's own stated keyboard-glance
-  // ceiling), live-tested, reported as too long — 10s of un-flagged phone
-  // time felt too lenient in practice even if keyboard glances really do
-  // stay under that ceiling. Cut to 5000. Still not fit against any
+  // Phase 4: two live-tested guesses (10000, then 5000) both came back
+  // "too long" — stopped guessing and asked directly instead. User's
+  // actual keyboard glance duration: ~2s. Set at 3000 (a small buffer
+  // above that, not the bare minimum) so a slightly-longer-than-typical
+  // real glance still doesn't get flagged, while cutting phone-tolerance
+  // time way down from the earlier guesses. Still not fit against any
   // fixture (none recorded this specific behavior) — a live-feel tuning
-  // value, not a data-fit one. Revisit again after this round of testing.
-  lookingDownGraceMs: 5000,
+  // value, grounded in a real reported number this time, not a guess.
+  lookingDownGraceMs: 3000,
   headPoseRX: 0.75, // NOT included in the Phase 2 fit, see headScore's comment below
   headPoseRDown: 0.75,
   headPoseRUp: 0.75,
