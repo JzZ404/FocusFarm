@@ -199,23 +199,32 @@ next live-tuning round has real numbers instead of a guess.
 **Confirmed fixed by user re-test (2026-08-18): edge-of-screen viewing no
 longer reads as looking_away.** `worldDeviationRX: 1.0` stays as shipped.
 
-**Item (e) — keyboard-vs-phone dwell tolerance (user's idea) — built.**
-Both behaviors are geometrically identical to this classifier (gaze
-pointed down); only sustained duration tells them apart. Added
-`gazeDownSinceMs`/`lookingDownGraceMs` (10s, taken directly from the
-user's own stated timing: keyboard glances stay under ~10s, phone-looking
-sustains 10-30s+): the downward component of gaze deviation is fully
+**Item (e) — keyboard-vs-phone dwell tolerance (user's idea) — built,
+live-tuned twice, then reverted after A/B comparison.** Both behaviors
+are geometrically identical to this classifier (gaze pointed down); only
+sustained duration tells them apart. Added `gazeDownSinceMs`/
+`lookingDownGraceMs`: the downward component of gaze deviation was fully
 forgiven (zeroed for gazeScore's distance calculation) below the grace
-period, full effect after. Sideways deviation is never forgiven by this —
-a phone held off to the side while looking down still counts via the X
-component (tested explicitly). 4 new unit tests, all isolating the
-mechanism directly (brief glance stays at score 1, sustained stare past
-grace reduces score and flips to looking_away, sideways still counts
-during the grace window, streak resets once gaze returns level). No
-regression on the 2 real fixtures — but also no visible effect on their
-aggregate numbers, since those fixtures' phone-labeled segments are held
-far longer than 10s anyway. **Needs live testing to actually validate**,
-same as the edge-of-screen fix did.
+period, full effect after. Sideways deviation was never forgiven by this —
+a phone held off to the side while looking down still counted via the X
+component (tested explicitly). 4 new unit tests isolated the mechanism
+directly.
+
+Live-tuning history: started at 10000ms (the user's own stated keyboard-
+glance ceiling) — reported "too long." Cut to 5000ms — still "too long."
+Stopped guessing, asked directly: user's actual glance duration is ~2s.
+Set to 3000ms (a small buffer above that). User then asked to A/B compare
+with the feature off entirely (toggled via `lookingDownGraceMs: 0`,
+mathematically equivalent to the mechanism not existing) — **and preferred
+the version without it.** Fully reverted (not left as a disabled config
+flag) — `git log` on `attention-phase4-keyboard-iris` still has the whole
+experiment (commits `b05ada4`, `bfcc9d3`, `f3d8340`) if ever revisited.
+
+Lesson: this item never had fixture data to validate against, only live
+feel — and live feel, iterated on quickly, converged on "don't want this"
+rather than "needs a different number." Worth remembering before building
+another duration-based tolerance purely from a stated estimate without a
+recorded fixture to check it against.
 
 **Item (a) — iris-diameter-normalized eye-openness — tested, NOT
 promoted.** Built `computeIrisNormalizedOpenness()` (vertical eyelid gap
