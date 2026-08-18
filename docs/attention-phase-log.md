@@ -283,3 +283,55 @@ classifier catching phone use through a legitimate correlated physical
 signal. No code change made; would have been fixing a problem that isn't
 actually happening the way the plan assumed. Diagnostic scripts were
 scratch-only, not committed.
+
+---
+
+## Rebuild called done (2026-08-18)
+
+Phases 0-3 shipped and live-tested; Phase 4's investigation items (a, b)
+resolved with real findings; the one thing actually built and live-tested
+this round (e) was tried, compared, and explicitly rejected by the user.
+Nothing is unfinished or blocking — what's left below is backlog, not
+open work. Decision: stop here, use the app, pick backlog items up
+whenever there's a reason to, not because a phase demands it.
+
+### Backlog — pick up anytime, none of it blocking
+
+- **(c) Retry blendshapes** (`outputFaceBlendshapes: true`) as a shadow
+  signal. Highest-risk item on this list — this is the exact mechanism
+  that caused one of the three pre-rebuild breaks (eyes-closed read as
+  focused). Per the plan: write a polarity unit test against a real
+  closed-eye fixture *first*, before trusting the signal for anything,
+  and only promote on a clear metric win (same discipline as item (a)).
+  Not started because nothing currently broken calls for it — the
+  existing EAR-based eye detection tested out fine (see item (a) and the
+  pitch investigation above).
+- **(d) 4-corner screen-position calibration** (look at all 4 corners,
+  regress to predicted screen position — WebGazer.js-style). Explicitly
+  the plan's lowest-priority item, gated on "only if (a)-(c) aren't
+  enough." Nothing so far has shown the current ellipse-based approach to
+  be insufficient. Not started, no urgency.
+- **(f) Face-too-far-from-camera** (user's idea). MediaPipe sometimes
+  still detects a small, distant face during a real "absent" walk-away,
+  which doesn't hit the `no_face` path. A face-width-based proxy (current
+  face width ÷ a calibrated per-session baseline, same calibration-window
+  trick as EAR's) was scoped but not built — reverted before landing when
+  the session moved to "call it done" instead. If picked up later: needs
+  its own live-tuning round (no fixture covers this behavior, same as
+  item (e) needed), and should get a `too_far` `DistractionReason` for
+  diagnostic parity with the other distraction types.
+- **Phone object detection** (user's idea — auto-distract whenever a
+  physical phone is visible). Explicitly NOT a small addition: needs a
+  second model running alongside the face tracker (real added CPU cost,
+  client-side), and "phone visible" is not the same as "phone in use" — a
+  naive version would false-distract constantly (phone just sitting on
+  the desk), which cuts directly against this project's core philosophy
+  that false-distract is worse than missing a real distraction. Would
+  need combining with proximity/hand-position signals to be usable at
+  all. Treat as its own initiative if ever pursued, not a quick add.
+- **Recording 2-3 other people.** Not a code task — the standing,
+  repeatedly-flagged highest-leverage item. Every fitted constant in this
+  entire rebuild (Phase 2's ellipse radii, the calibration sigma
+  threshold, `worldDeviationRX`'s live-tuned value) is validated only
+  against the user's own face. Doesn't block using the app solo; matters
+  if this is ever meant to work reliably for anyone else.
