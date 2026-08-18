@@ -281,14 +281,13 @@ export const DEFAULT_CONFIG: AttentionConfig = {
   worldDeviationRX: 1.0,
   worldDeviationRDown: 0.2,
   worldDeviationRUp: 0.1,
-  // Phase 4: user's own stated real-world timing — keyboard glances stay
-  // under ~10s even while typing continuously, phone-looking sustains
-  // 10-30s+. Not fit against any fixture (none recorded this specific
-  // behavior); set at exactly the user's stated ceiling so genuine typing
-  // is fully protected and the ambiguous boundary matches their own
-  // description of where "glance" becomes "stare." Revisit after live
-  // testing.
-  lookingDownGraceMs: 10000,
+  // Phase 4: started at 10000 (the user's own stated keyboard-glance
+  // ceiling), live-tested, reported as too long — 10s of un-flagged phone
+  // time felt too lenient in practice even if keyboard glances really do
+  // stay under that ceiling. Cut to 5000. Still not fit against any
+  // fixture (none recorded this specific behavior) — a live-feel tuning
+  // value, not a data-fit one. Revisit again after this round of testing.
+  lookingDownGraceMs: 5000,
   headPoseRX: 0.75, // NOT included in the Phase 2 fit, see headScore's comment below
   headPoseRDown: 0.75,
   headPoseRUp: 0.75,
