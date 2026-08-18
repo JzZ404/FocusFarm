@@ -18,7 +18,7 @@ export default function FarmTileComponent({ tile, size }: FarmTileProps) {
         className="flex items-center justify-center select-none"
         style={{ width: size, height: size, fontSize: size * 0.5 }}
       >
-        ❓
+        ?
       </div>
     );
   }

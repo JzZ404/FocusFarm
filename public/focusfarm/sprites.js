@@ -277,6 +277,96 @@
     fn.__w = 30; fn.__h = 34; fn.__proc = true; return fn;
   }
 
+  // ---------- procedural mushroom cottage — for the starter-menu
+  // background (menuScene.js), not the farm island. Same rect/set +
+  // per-row rounded-dome technique as buildCabin's roof, just bigger and
+  // overhanging the walls on both sides for a mushroom-cap silhouette, with
+  // white spots and a chimney poking out through the cap. The canvas has a
+  // tall empty band above the chimney so a soft smoke trail can rise
+  // through it without leaving the sprite's own bounding box. Colors are a
+  // new muted dusty-red family (not reused from the barn) so the cap reads
+  // as its own material, kept inside the same soft/desaturated register as
+  // the rest of the palette. ----
+  function buildMushroomCottage() {
+    let cached = null;
+    function build() {
+      const w = 34, h = 58;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+      const set = (px, py, c) => { x.fillStyle = c; x.fillRect(px, py, 1, 1); };
+      const rect = (px, py, pw, ph, c) => { x.fillStyle = c; x.fillRect(px, py, pw, ph); };
+      const C = {
+        capD: '#8f4a3f', capM: '#b8645a', capL: '#d68f83', spot: '#f6efdd',
+        wl: '#e2c094', wm: '#c2925f', wd: '#8a5e3c', dark: '#5a3f2c',
+        cream: '#fbeece', knob: '#f3d96a',
+        glass: '#86b9bc', glassL: '#c8e6e5',
+        stoneD: '#707870', stoneM: '#9aa39c', stoneL: '#c3ccc5',
+      };
+      const cxc = 17;
+      // Smoke is NOT baked in here — it's animated (rising/fading) by
+      // StartMenuBackground.tsx each frame, using FFMenuScene's exposed
+      // smokeOrigin point. The empty band above the chimney is kept anyway
+      // so that origin has clear headroom to rise through.
+      // ----- CHIMNEY (base hidden behind the cap, drawn next) — moved down
+      // 10px from the first pass so its base still sits inside the now-
+      // shorter dome's slope; with the dome compressed into fewer rows, the
+      // old chimney position sat entirely above the roof with a visible
+      // gap instead of emerging through it. -----
+      rect(4, 24, 5, 18, C.stoneM);
+      rect(4, 24, 1, 18, C.stoneD); rect(8, 24, 1, 18, C.stoneD);
+      rect(3, 22, 7, 3, C.stoneL); rect(3, 24, 7, 1, C.stoneD);
+      // ----- CAP (rounded dome, overhangs the walls — same per-row
+      // growing-half-width technique as buildCabin's roof) -----
+      // Rows 18-43 (26 tall) made the cap loom over the walls; compressing
+      // the same width curve into fewer rows (28-43, 16 tall) keeps the
+      // same max overhang width at the bottom but flattens/lowers the
+      // dome — shorter and squatter instead of towering.
+      for (let ry = 28; ry <= 43; ry++) {
+        const t = (ry - 28) / 15;
+        // quarter-circle curve (not linear) — linear growth here draws a
+        // straight-sided cone/witch-hat; this bows the profile out like an
+        // actual hemisphere, narrow+rounded at the top, nearly vertical at
+        // the wide bottom rim.
+        const half = Math.round(3 + Math.sqrt(1 - (1 - t) * (1 - t)) * 13);
+        for (let rx = cxc - half; rx <= cxc + half; rx++) {
+          let col;
+          if (rx === cxc - half || rx === cxc + half || ry === 43) col = C.capD;
+          else col = ((rx - (cxc - half)) % 4 === 3) ? C.capM : C.capL;
+          set(rx, ry, col);
+        }
+      }
+      rect(14, 27, 6, 1, C.capL); rect(15, 26, 4, 1, C.capM); // rounded cap nub
+      // white spots scattered on the cap (avoid the very top/bottom rows)
+      const spots = [[9, 32], [24, 30], [17, 37], [12, 39], [22, 40], [27, 34]];
+      for (const [sx, sy] of spots) {
+        rect(sx - 1, sy, 3, 2, C.spot); rect(sx, sy - 1, 1, 1, C.spot);
+      }
+      // ----- WALLS (cylindrical cottage base, sits on the ground) -----
+      // Widened from 14 to 22 (centered under the cap the same way, cxc=17)
+      // — at 14 wide against the cap's ~33px span the base read as a thin
+      // stem under a huge cap; 22 keeps a real overhang (still narrower
+      // than the cap) without looking spindly.
+      const bx = 6, bw = 22, by = 44, bh = 14;
+      rect(bx, by, bw, bh, C.wm);
+      for (let py = by + 2; py < by + bh; py += 3) rect(bx, py, bw, 1, C.wl);
+      rect(bx, by, 1, bh, C.wd); rect(bx + bw - 1, by, 1, bh, C.wd);
+      rect(bx, by + bh - 1, bw, 1, C.wd);
+      // window (left) + round-top door (right)
+      rect(8, 45, 7, 7, C.wd);
+      rect(9, 46, 5, 5, C.glass); rect(9, 46, 5, 2, C.glassL);
+      rect(11, 46, 1, 5, C.wd); rect(9, 48, 5, 1, C.wd);
+      const dw = 6, dx = 20, dtop = by + 2;
+      rect(dx, dtop, dw, by + bh - dtop, C.wd);
+      rect(dx + 1, dtop + 1, dw - 2, by + bh - dtop - 1, C.dark);
+      rect(dx + 1, dtop, dw - 2, 1, C.wl);
+      set(dx, dtop, C.wm); set(dx + dw - 1, dtop, C.wm);
+      set(dx + dw - 2, dtop + 5, C.knob);
+      cached = cv; return cv;
+    }
+    const fn = () => cached || build();
+    fn.__w = 34; fn.__h = 58; fn.__proc = true; return fn;
+  }
+
   // ---------- procedural windmill — split into a static base (tower + cap
   // + mast) and a separate blades sprite, so the blades can be redrawn
   // with a canvas rotation each animation frame (FarmCanvas.tsx) instead
@@ -552,6 +642,7 @@
   S.windmill = buildWindmillBase();
   S.windmillBlades = buildWindmillBlades();
   S.locomotive = buildLocomotive();
+  S.mushroomCottage = buildMushroomCottage(); // starter-menu background only
 
   // ---- L-SHAPED DOCK 34x13 (wood-plank pier — same 3-tone o/W/w technique
   // as the boat below) for the north-facing (top-edge) shore between the

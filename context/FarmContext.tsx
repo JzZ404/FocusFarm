@@ -81,6 +81,15 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     (itemId: string): boolean => {
       const item = SHOP_ITEMS.find((i) => i.id === itemId);
       if (!item) return false;
+      // unlockMinFocusMinutes used to be purely decorative display text —
+      // enforce it here too, not just in ShopItemCard's disabled Buy button,
+      // so the gate holds regardless of which UI path calls purchaseItem.
+      if (
+        item.unlockMinFocusMinutes &&
+        profile.totalFocusMinutes < item.unlockMinFocusMinutes
+      ) {
+        return false;
+      }
       const updated = spendCoins(item.cost, `purchase_${itemId}`);
       if (!updated) return false;
       setLedger(updated);
@@ -111,7 +120,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
 
       return true;
     },
-    [] // no deps — uses setFarm callback form to get latest farm state
+    [profile.totalFocusMinutes] // farm/ledger read via functional setters, but the
+    // unlock check above reads profile directly, so it needs to be current
   );
 
   const placeItem = useCallback(

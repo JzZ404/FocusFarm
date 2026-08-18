@@ -25,7 +25,7 @@ export default function ShopPage() {
             <PixelButton variant="outline" size="sm">Farm</PixelButton>
           </Link>
         </div>
-        <span className="font-pixel text-pixel-lg text-white">🛒 Shop</span>
+        <span className="font-pixel text-pixel-lg text-white">Shop</span>
         <CoinDisplay balance={ledger.balance} size="sm" />
       </header>
 
@@ -42,12 +42,19 @@ export default function ShopPage() {
             <Link href="/farm">
               <PixelButton size="sm">Go to Farm</PixelButton>
             </Link>
-            <button
+            {/* Tertiary's default color is neutral gray (#9ca3af) — this one
+                action is semantically closer to "undo/destructive" than a
+                plain dismiss, so it keeps a red tint. #f87171 (the danger
+                red used elsewhere) measured 4.01:1 against this banner's
+                actual background — under the project's 4.5:1 small-text
+                standard — red-300 (#fca5a5) clears it at 5.85:1. */}
+            <PixelButton
+              variant="tertiary"
               onClick={cancelPlacement}
-              className="font-pixel text-pixel-xs text-red-400 hover:text-red-300 underline"
+              style={{ color: "#fca5a5" }}
             >
               Cancel (refund)
-            </button>
+            </PixelButton>
           </div>
         </div>
       )}
@@ -57,7 +64,7 @@ export default function ShopPage() {
           {ledger.balance === 0 && (
             <div className="pixel-panel px-4 py-3 mb-4">
               <p className="font-pixel text-pixel-sm text-yellow-400 text-center">
-                🎯 No coins yet!{" "}
+                No coins yet!{" "}
                 <Link href="/session" className="underline text-yellow-300">
                   Start a focus session
                 </Link>{" "}

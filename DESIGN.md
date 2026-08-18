@@ -41,7 +41,7 @@ Before changing any color pairing, check it — see "Contrast checklist" below.
 | Focused / success | `#4ade80` | Attention-detected, session-complete heading, live-session pulse |
 | Distracted / error | `#f87171` | Attention lost, "Away" stat |
 | Coin / currency | `#fbbf24` (UI accents), `#f5c518` (coin icon fill), `#ffe566` (coin badge text) | All money-related UI |
-| Danger | `#cc4444` fill / `#6a1a1a` border | Destructive actions (`.pixel-btn-danger`, Abandon session) |
+| Danger | `#cc4444` fill / `#fbf8ee` border | Destructive actions (`.pixel-btn-danger`, Abandon session) |
 
 ### Reward-tier colors (session page)
 
@@ -92,24 +92,54 @@ reads as one blended shape.
 
 ## Buttons (`PixelButton` component, `.pixel-btn*` classes)
 
-Three variants, three sizes. All share the chunky 3D pixel-corner treatment
-(`clip-path` notched corners + hard offset `box-shadow` for the "pressed"
-3D edge, `outline` for the border since real `border` would be clipped).
+Four variants — **primary / secondary (`outline`) / tertiary / danger** —
+plus three sizes. Primary/secondary/danger share the chunky 3D pixel-corner
+treatment (`clip-path` notched corners + hard offset `box-shadow` for the
+"pressed" 3D edge, `outline` for the border since real `border` would be
+clipped); tertiary deliberately opts out of all of that (see below).
 
 | Variant | Background | Text | Border | Use |
 |---|---|---|---|---|
-| `primary` (default) | `#5cb85c` | `#ffffff` | `#1a4a1a` | Main CTA (Start, Finish session) |
-| `outline` (secondary) | `var(--farm-border)` `#2d4a2d` | `#c8f0a8` | `#5a9828` | Secondary actions (back links, Shop/How to Play on starter menu) |
-| `danger` | `#cc4444` | `#ffffff` | `#6a1a1a` | Destructive (Abandon session) |
+| `primary` (default) | `#3e7c3e` | `#ffffff` | `#c8f0a8` | Main CTA (Start, Finish session, Buy) |
+| `outline` (secondary) | `var(--farm-border)` `#2d4a2d` | `#c8f0a8` | `#6aaa35` | Secondary actions (back links, Start Focus Session's "tap to return") |
+| `tertiary` | transparent | `#9ca3af` | none (underline only) | De-emphasized actions (Cancel (refund), preview Hide/Show) |
+| `danger` | `#cc4444` | `#ffffff` | `#fbf8ee` | Destructive (Abandon session) |
 
 Sizes: `sm` (9px text), `md` (11px, default), `lg` (13px, hero CTAs).
+`tertiary` ignores `size` — it sets its own compact 9px/8px-12px padding
+regardless (see globals.css comment on why composing it with `pixel-btn-sm`/
+`-lg` doesn't work).
+
+**`onScene` prop**: every primary/secondary usage above sits on a flat dark
+background (page body `#1a2e1a`, header `#0a150a`, `.pixel-panel` `#0f1f0f`)
+*except* the 3 starter-menu buttons (Start/Shop/How to Play) and the farm
+page's floating session CTA, which sit directly on an illustrated scene
+(`StartMenuBackground/menuScene.js`, `FarmCanvas`). One border color can't
+hit 3:1 against both a near-black page and a light sky/soil scene — the
+luminance windows don't overlap (the scene's grass tone is literally
+`--grass-a` `#6aaa35`, the same token used for the dark-context border, so a
+mid-tone border reads ~1:1 wherever it lands on grass). Pass `onScene` to
+swap back to the darker, scene-tuned border (`#1a4a1a` primary / `#0f2f0f`
+secondary) on any button placed over illustrated art instead of a flat page.
 
 **Icon-only circular buttons** are a separate, smaller pattern for floating
 utility controls (not `PixelButton`) — see `BackgroundMusic` and
-`ClearAnimalsButton`: `w-10 h-10 rounded-full`, `backdrop-blur`, single emoji
-glyph, `2px solid rgba(255,255,255,0.15)` border, no text label. Use this
-pattern (not a full `PixelButton`) for floating corner controls where a
-single icon is self-explanatory.
+`ClearAnimalsButton`, both using the shared `.pixel-icon-btn` class:
+`w-10 h-10 rounded-full`, `backdrop-blur`, single glyph, no text label,
+`2px solid rgba(255,255,255,0.5)` border. The two components each set their
+own background color/opacity (near-opaque — `black/70`+ or `red-950/75`+ —
+so the effective backdrop stays dark and stable regardless of what's
+actually playing behind them, since both float over the live, unpredictable
+farm canvas / webcam feed on at least one page) and a `:focus-visible`
+ring is baked into the shared class. Use this pattern (not a full
+`PixelButton`) for floating corner controls where a single icon is
+self-explanatory.
+
+**Filter chips** (`.pixel-chip` + `.pixel-chip-on`/`-off`) are a third,
+even smaller pattern for segmented/mutually-exclusive toggle groups — see
+ShopCatalog's sort-order picker. Not a `PixelButton` variant (a group of
+options isn't a standalone action), but shares the same border/focus
+tokens as everything else.
 
 ## Panels
 
@@ -132,6 +162,66 @@ Before shipping a new color pairing:
 
 ## Changelog
 
+- **2026-08-17** — Session page "Start with Camera"/"Start without Camera":
+  both were already `size="lg"` (same font-size/padding props), but their
+  container used `items-center`, so each button sized to its own text and
+  rendered at a visibly different width ("Start without Camera" is 3
+  characters longer). Container switched to `items-stretch` + `w-fit`
+  (sizes to the widest child's natural width, not a guessed fixed cap —
+  tried `max-w-xs` first, wrapped the longer label to 2 lines) so both
+  buttons fill the same width.
+- **2026-08-17** — ShopItemCard's locked-card pixelation (`pixelate-locked`/
+  `pixelate-locked-hover`, rendered by `ShopCatalog`) retuned: default state
+  moved to what used to be the hover-only finer grid (4px blocks — reads as
+  less obscured by default), hover steps down one more notch to 2px blocks
+  for a stronger peek. (An intermediate iteration swapped hover to a plain
+  `blur()` instead of a second pixelate filter — reverted; both states stay
+  pixelated, matching the app's hard-edged art everywhere else, per
+  explicit direction.)
+- **2026-08-17** — Site-wide button audit + consistency pass. Findings:
+  1. **`.pixel-btn`/`.pixel-btn-outline`/`.pixel-btn-danger`'s borders were
+     tuned once for the starter menu's illustrated background and never
+     re-checked against the (more common) flat dark contexts they also
+     appear in** — headers (`#0a150a`), page body (`--farm-bg`), panels
+     (`--farm-panel`). Measured as low as 1.00–1.67:1 there (needs 3:1),
+     i.e. invisible on every "Home"/"Farm" header button and every primary
+     button on the session page body. Fixed by flipping the default border
+     to a light, dark-context-tuned color per variant (`#c8f0a8` primary,
+     `#6aaa35` secondary, `#fbf8ee` danger — all reused tokens) and adding
+     `onScene` (see Buttons section above) to keep the original dark
+     scene-tuned border for the handful of buttons that actually sit on
+     illustrated art.
+  2. **Farm page's floating "START FOCUS SESSION" button measured 1.74:1**
+     (white text on `#4ade80`) — a 4th, unrelated bespoke button style
+     (rounded-xl pill, its own color scheme) that was also the single
+     worst contrast failure found, on the app's main CTA. Converted to a
+     real `PixelButton` (`primary`/`lg`, `onScene`); the "tap to return"
+     pill became `outline`/`onScene`.
+  3. Icon buttons (`BackgroundMusic`, `ClearAnimalsButton`) had a
+     `rgba(255,255,255,0.15)` border (~1.3–1.55:1) and, for the music
+     toggle's muted state, a `#6b7280` glyph that fell to 1.17:1 over the
+     light farm-page canvas. Consolidated into a shared `.pixel-icon-btn`
+     class: border bumped to `rgba(255,255,255,0.5)`, each button's fill
+     opacity raised (`black/50`→`/70`, `red-950/60`→`/75`) so the effective
+     backdrop stays dark regardless of the live scene/video behind it, and
+     the muted-state color swapped to `#9ca3af`.
+  4. ShopCatalog's sort chips had a `border-farm-border` (`#2d4a2d`)
+     outline against its own `bg-farm-panel` fill — 1.74:1, failing against
+     *itself*. New `.pixel-chip`/`.pixel-chip-on`/`-off` classes reuse
+     `#6aaa35`.
+  5. Two raw, unpadded text buttons — Shop's "Cancel (refund)" (text-red-400
+     at 4.01:1 against its banner, under this doc's 4.5:1 small-text
+     standard) and AttentionHUD's preview "Hide"/"Show" toggle — were both
+     under the WCAG 2.5.8 24×24px target-size minimum (no padding, ~11-15px
+     tall) with no custom focus ring. New `tertiary` `PixelButton` variant
+     added for exactly this case (padded, real focus ring). The Hide/Show
+     toggle additionally needed `.pixel-btn-tertiary-inset` (an
+     `outline-offset: -3px` focus ring) since it sits 4px from the edge of
+     an `overflow-hidden` container — an outward ring would've been cropped,
+     the same class of bug the button clip-path fix below documents.
+  6. `.pixel-btn:disabled`'s text/bg (`#7a9a7a` on `#4a6a4a`, 1.95:1) is
+     under 4.5:1 but WCAG exempts inactive controls from the text-contrast
+     SC — left as-is, noted here rather than silently skipped.
 - **2026-08-09** — `.pixel-btn-outline` border (`#3a6a2a` on `#1a2e1a`,
   2.26:1) failed WCAG 1.4.11. Fixed by switching outline buttons to a solid
   fill (`--farm-border` background, `#c8f0a8` text at 7.74:1 AAA, `#5a9828`

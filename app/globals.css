@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -27,12 +27,31 @@ html, body {
 
 .font-pixel { font-family: 'Press Start 2P', monospace; }
 
+/* ── Body/prose text ─────────────────────────────────────────────
+ * Press Start 2P (the pixel font, above) is a title/UI-chrome face —
+ * chunky and bold at large sizes, but its fixed-width blocky letterforms
+ * hurt legibility for actual sentences (shop item descriptions, How to
+ * Play's step text). Nunito is a soft, rounded, humanist sans that keeps
+ * the app's friendly/cute tone without competing with the pixel headers
+ * — a common pairing in casual/indie pixel-art game UI (chunky display
+ * face + a plain, easy-to-read body face). Use `.text-body` for real
+ * sentences/paragraphs only — everything else (titles, buttons, labels,
+ * stats) stays on the `.text-pixel-*` scale above; mixing the two
+ * further than that would undercut the "exactly one class" rule that
+ * scale exists for. */
+.text-body {
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
 /* ── Typography scale ────────────────────────────────────────────
  * Seven-tier hierarchy for all in-app pixel-font text. Every text
  * element MUST use exactly ONE of these classes (alongside .font-pixel).
  * Do NOT introduce ad-hoc font-sizes via inline styles or text-xs/sm/lg.
- * Exception: standalone emoji decorations (🎉 📷 etc.) may use Tailwind
- * text-2xl / text-4xl for sizing — they aren't pixel-font characters.
+ * (The app no longer uses emoji decorations — this scale applies uniformly.)
  *
  *   text-pixel-3xl (72px) — mega hero                (starter menu "FocusFarm" title)
  *   text-pixel-2xl (48px) — focal numeric displays    (the session timer)
@@ -97,7 +116,11 @@ html, body {
    PIXEL ART BUTTONS
    ══════════════════════════════════════════════════════════════ */
 
-/* Primary green pixel button (matches reference) */
+/* Primary green pixel button (matches reference)
+ * NOTE: background was #5cb85c — white text on it measured 2.48:1, well
+ * under the 4.5:1 AA floor (see the contrast checklist: all pixel-font
+ * sizes here count as small text). Darkened to #3e7c3e (5.05:1) keeping
+ * the same hue/ratio, just less saturated-bright. */
 .pixel-btn {
   display: inline-flex;
   align-items: center;
@@ -106,14 +129,24 @@ html, body {
   font-family: 'Press Start 2P', monospace;
   font-size: 11px;
   color: #ffffff;
-  background: #5cb85c;
+  background: #3e7c3e;
   padding: 12px 24px;
   border: none;
   cursor: pointer;
   position: relative;
   text-shadow: 1px 1px 0 #1a4a1a;
-  /* Chunky 3D pixel border */
-  outline: 3px solid #1a4a1a;
+  /* Chunky 3D pixel border.
+   * NOTE: this outline was #1a4a1a (near-black green) — fine against the
+   * starter menu's light illustrated scene (6.45:1+, see .pixel-btn-on-scene
+   * below) but the button appears on dark contexts far more often (session/
+   * shop page body #1a2e1a, .pixel-panel modal fill #0f1f0f, placement
+   * banner) where #1a4a1a measured as low as 1.08:1–1.67:1 — the "chunky
+   * border" was silently invisible on every one of those, same class of bug
+   * pixel-btn-outline's border had already been fixed for once (see
+   * DESIGN.md changelog). #c8f0a8 (existing token, already used as the
+   * outline-variant's text color) clears 3:1 against its own fill (3.97:1)
+   * and every dark real context (11.37–14.66:1). */
+  outline: 3px solid #c8f0a8;
   box-shadow:
     0 5px 0 0 #1a4a1a,
     inset 0 2px 0 0 rgba(255,255,255,0.35),
@@ -128,7 +161,17 @@ html, body {
   transition: transform 0.05s, box-shadow 0.05s, background 0.05s;
   user-select: none;
 }
-.pixel-btn:hover { background: #6acf6a; }
+.pixel-btn:hover { background: #458445; } /* was #6acf6a at 1.95:1 — 4.53:1 */
+/* On-scene modifier: for the 3 starter-menu buttons (Start/Shop/How to
+ * Play) that sit directly on StartMenuBackground's illustrated scene
+ * instead of a flat dark page. A single static border can't satisfy 3:1
+ * against BOTH that light scene (sky/soil ~0.6-0.84 luminance) and the
+ * near-black headers/panels used everywhere else — the two contexts don't
+ * share a viable luminance window (verified: the scene's grass tone is
+ * literally --grass-a #6aaa35, so a mid-tone border reads ~1:1 against it
+ * wherever they overlap). Swaps back to the dark, scene-tuned borders. */
+.pixel-btn-on-scene.pixel-btn { outline-color: #1a4a1a; }
+.pixel-btn-on-scene.pixel-btn-outline { outline-color: #0f2f0f; }
 .pixel-btn:active {
   transform: translateY(4px);
   box-shadow:
@@ -154,11 +197,25 @@ html, body {
  * border sat at 2.26:1 against --farm-bg, failing WCAG 1.4.11 (needs 3:1),
  * so the whole button read as boundary-less on dark backgrounds. Fixed with
  * a solid fill using existing palette tokens (--farm-border / grass-dark),
- * verified AAA (9.86:1 border-adjacent-page, 7.74:1 text-on-fill). */
+ * verified AAA (9.86:1 border-adjacent-page, 7.74:1 text-on-fill).
+ * Border color updated again since the starter menu now sits on an
+ * illustrated (not flat) background: #5a9828 measured only 2.21:1 against
+ * the new sky blue — mid-brightness olive green is too close in luminance
+ * to the scene's sky/grass tones. #0f2f0f (near --farm-panel) clears 3:1
+ * against every tone actually in that scene (sky/cloud/grass/soil/cottage
+ * cap), same dark-boundary approach the primary button's outline uses. */
 .pixel-btn-outline {
   background: var(--farm-border); /* #2d4a2d — was transparent */
   color: #c8f0a8;                 /* was #7ab648 — 7.74:1 on new fill (AAA) */
-  outline: 3px solid #5a9828;     /* was #3a6a2a — 4.11:1 vs page bg (passes 1.4.11) */
+  /* Border was #0f2f0f, tuned only for the starter-menu scene (see
+   * .pixel-btn-on-scene above) — but this class is also the "Home"/"Farm"
+   * nav button on every other page's header (#0a150a, near-black) and the
+   * session/summary-modal outline buttons (#1a2e1a / #0f1f0f page body and
+   * panel fills). #0f2f0f measured 1.00–1.28:1 there — invisible. #6aaa35
+   * (--grass-a, already used for .pixel-panel's border) clears 3:1 against
+   * every one of those dark contexts (5.11–6.59:1) and against its own
+   * fill (3.48:1). */
+  outline: 3px solid #6aaa35;
   box-shadow: 0 4px 0 0 #1a3a1a, inset 0 1px 0 0 rgba(255,255,255,0.1);
   text-shadow: none;
 }
@@ -167,10 +224,120 @@ html, body {
 /* Danger/red variant */
 .pixel-btn-danger {
   background: #cc4444;
-  outline: 3px solid #6a1a1a;
+  /* Border was #6a1a1a — 1.22:1 against the session page body (#1a2e1a)
+   * where the one usage (Abandon) actually sits, same invisible-border bug
+   * as the other two variants. #fbf8ee is the existing near-white token
+   * already used for every variant's focus ring; reusing it here clears
+   * 4.41:1 against the fill and 13.6:1+ against dark page contexts. */
+  outline: 3px solid #fbf8ee;
   box-shadow: 0 5px 0 0 #6a1a1a, inset 0 2px 0 0 rgba(255,255,255,0.25);
 }
-.pixel-btn-danger:hover { background: #dd5555; }
+.pixel-btn-danger:hover { background: #c03838; } /* was #dd5555 at 3.81:1 — 5.43:1 */
+
+/* Tertiary variant — de-emphasized text-style action, for things like
+ * "Cancel (refund)" or the attention-preview Hide/Show toggle: lower
+ * visual weight than primary/secondary/danger (no fill, no chunky 3D
+ * border), but still a real button with real padding. The thing it
+ * replaces (a bare underlined `<button>` with no padding, ~11px tall) is
+ * exactly the WCAG 2.5.8 target-size failure this fixes — 24x24px CSS px
+ * minimum, met here via padding rather than visible size so the compact
+ * look is kept. Sets its own font-size/padding rather than composing with
+ * .pixel-btn-sm/.pixel-btn-lg (used size="md"/default in practice) — those
+ * size classes are declared later in the file and would win their
+ * box-shadow back over this variant's `box-shadow: none` on cascade order,
+ * re-adding the chunky-button shelf shadow tertiary is explicitly opting
+ * out of. */
+.pixel-btn-tertiary {
+  background: transparent;
+  color: #9ca3af;
+  font-size: 9px;
+  padding: 8px 12px;
+  outline: none;
+  box-shadow: none;
+  text-shadow: none;
+  text-decoration: underline;
+  clip-path: none;
+  border-radius: 4px;
+}
+.pixel-btn-tertiary:hover { color: #e5e7eb; background: rgba(255,255,255,0.08); }
+/* Explicit box-shadow/background resets below, not just a transform change
+ * — .pixel-btn:active/:disabled (a class+pseudo-class pair, same specificity
+ * as .pixel-btn-tertiary:active/:disabled) still wins any property this
+ * rule doesn't also set, which would silently reintroduce the chunky
+ * button's dark shelf-shadow and disabled fill underneath the tertiary
+ * look. */
+.pixel-btn-tertiary:active { transform: translateY(1px); box-shadow: none; }
+.pixel-btn-tertiary:disabled {
+  color: #4b5563;
+  background: transparent;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Keyboard focus indicator (WCAG 2.4.7 Focus Visible)
+ * All three variants set `outline` unconditionally above (it's the
+ * decorative chunky border, always on) — that means the browser's default
+ * focus ring has nothing to draw over, and keyboard focus was completely
+ * invisible on every pixel-btn. A single fixed-color ring can't be
+ * guaranteed 3:1 everywhere either now that these buttons sit on the
+ * starter menu's illustrated (not flat-color) background — so this is a
+ * light-then-dark double ring: whichever half lands on a light patch of
+ * scenery, the other half is dark enough to still read, and vice versa.
+ *
+ * The ring also needs a WIDER clip-path: the button's own clip-path (the
+ * cut-corner shape) clips its *entire* paint, including outline and
+ * box-shadow — not just the fill. Confirmed by testing with clip-path
+ * temporarily removed: the ring was already being drawn correctly the
+ * whole time, just invisible because it fell outside the clipped region.
+ * This variant expands the same octagon 8px outward on focus so the ring
+ * has room; the corner-cut geometry (6px insets) stays identical, just
+ * translated outward, so the shape doesn't change, only its size. */
+.pixel-btn:focus-visible,
+.pixel-btn-outline:focus-visible,
+.pixel-btn-danger:focus-visible {
+  outline-color: #fbf8ee;
+  outline-offset: 3px;
+  clip-path: polygon(
+    6px -8px, calc(100% - 6px) -8px,
+    calc(100% + 8px) 6px, calc(100% + 8px) calc(100% - 6px),
+    calc(100% - 6px) calc(100% + 8px), 6px calc(100% + 8px),
+    -8px calc(100% - 6px), -8px 6px
+  );
+}
+.pixel-btn:focus-visible {
+  box-shadow:
+    0 5px 0 0 #1a4a1a,
+    inset 0 2px 0 0 rgba(255,255,255,0.35),
+    inset 0 -2px 0 0 rgba(0,0,0,0.20),
+    0 0 0 6px #1a4a1a;
+}
+.pixel-btn-outline:focus-visible {
+  box-shadow: 0 4px 0 0 #1a3a1a, inset 0 1px 0 0 rgba(255,255,255,0.1), 0 0 0 6px #1a4a1a;
+}
+.pixel-btn-danger:focus-visible {
+  box-shadow: 0 5px 0 0 #6a1a1a, inset 0 2px 0 0 rgba(255,255,255,0.25), 0 0 0 6px #1a4a1a;
+}
+/* Tertiary carries the base .pixel-btn class too (for its base layout
+ * rules), so it also matches the combined selector above and .pixel-btn's
+ * own :focus-visible box-shadow block — both would otherwise reintroduce
+ * the chunky dark ring/expanded octagon clip-path here. Reset explicitly:
+ * tertiary has no chunky border to fight with, so a normal outline works
+ * without the expanded-clip-path trick those need. */
+.pixel-btn-tertiary:focus-visible {
+  outline: 2px solid #fbf8ee;
+  outline-offset: 2px;
+  background: rgba(255,255,255,0.08);
+  box-shadow: none;
+  clip-path: none;
+}
+/* Inset variant — for tertiary buttons positioned close to the edge of an
+ * overflow-hidden ancestor (AttentionHUD's Hide/Show toggle sits
+ * bottom-1/right-1 inside the video box's overflow-hidden frame, 4px from
+ * each edge — an outward 2px ring at 2px offset would get cropped on the
+ * clipped sides, same class of bug the button clip-path fix elsewhere in
+ * this file addresses). Draws the ring inward instead so it can never be
+ * clipped regardless of ancestor overflow. */
+.pixel-btn-tertiary-inset:focus-visible { outline-offset: -3px; }
 
 /* Small variant */
 .pixel-btn-sm {
@@ -178,6 +345,71 @@ html, body {
   padding: 8px 16px;
   gap: 6px;
   box-shadow: 0 3px 0 0 #1a4a1a, inset 0 1px 0 0 rgba(255,255,255,0.3);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ICON BUTTONS — floating circular utility controls (BackgroundMusic,
+   ClearAnimalsButton). Deliberately a separate, smaller pattern from
+   PixelButton (see DESIGN.md) rather than a 4th variant: they're
+   single-glyph, no text label, fixed-position corner controls. Shared here
+   so both components pull the same rule instead of duplicating the same
+   Tailwind utility soup with copy-paste drift between them.
+   ══════════════════════════════════════════════════════════════ */
+.pixel-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Press Start 2P', monospace;
+  backdrop-filter: blur(6px);
+  transition: background-color 0.15s, border-color 0.15s;
+  /* Border was rgba(255,255,255,0.15) — 1.28–1.55:1 against every real
+   * backdrop this sits on (measured against the button's own black/50 or
+   * red-950/60 fill, blended over both a dark page and the light farm-page
+   * canvas). 1.4.11 needs 3:1; 0.5 alpha white clears it everywhere the
+   * button actually appears. */
+  border: 2px solid rgba(255,255,255,0.5);
+}
+.pixel-icon-btn:focus-visible {
+  outline: 3px solid #fbf8ee;
+  outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTER CHIPS — segmented toggle group (ShopCatalog's sort-order picker).
+   A third distinct pattern from PixelButton/icon buttons: a set of mutually
+   exclusive options, not standalone actions, so it keeps its own compact
+   pill shape rather than borrowing the clip-path button silhouette — but
+   shares the app's border/focus tokens so it doesn't feel like a different
+   app.
+   ══════════════════════════════════════════════════════════════ */
+.pixel-chip {
+  font-family: 'Press Start 2P', monospace;
+  border-radius: 4px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.pixel-chip:focus-visible {
+  outline: 2px solid #fbf8ee;
+  outline-offset: 2px;
+}
+/* Unselected: border was --farm-border #2d4a2d against its own bg-farm-panel
+ * fill — 1.74:1 (fails 1.4.11 against its OWN background, let alone the
+ * page body behind it). #6aaa35 (reused from .pixel-panel/.pixel-btn-outline)
+ * clears 3:1 against both. */
+.pixel-chip-off {
+  background: #0f1f0f;
+  border-color: #6aaa35;
+  color: #9ca3af;
+}
+.pixel-chip-off:hover { border-color: #78b840; color: #c8f0a8; }
+.pixel-chip-on {
+  background: rgba(74,222,128,0.2);
+  border-color: #4ade80;
+  color: #4ade80;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -234,6 +466,36 @@ html, body {
   100% { transform: scale(1) rotate(0deg); }
 }
 .coin-pop { animation: coinPop 0.45s ease-out; }
+
+/* ══════════════════════════════════════════════════════════════
+   PIXELATED LOCK BLUR (ShopItemCard) — references an SVG <filter> that
+   ShopCatalog renders once (id="pixelate-locked"/"pixelate-locked-hover").
+   That filter is a standard mosaic recipe: feFlood seeds a sparse grid of
+   1px sample points, feTile repeats it across the element, a feComposite
+   "in" masks the source graphic down to just those points, and
+   feMorphology dilate expands each surviving point back out into a solid
+   block. Plain CSS `blur()` reads as smooth/hazy, which clashes with this
+   app's crisp hard-edged pixel-art language everywhere else — this
+   quantizes into visible square blocks instead: chunky at rest,
+   still-chunky-but-lighter on hover for a peek. (Cross-filter changes
+   don't interpolate in browsers, so this is a hard cut, not an animated
+   blur-amount slide — the overlay text's opacity fade, which does
+   transition, carries the "reveal" motion instead.) */
+.pixel-blur-locked { filter: url(#pixelate-locked); }
+.group:hover .pixel-blur-locked { filter: url(#pixelate-locked-hover); }
+
+/* Purchase "delivery" toast (DeliveryToast.tsx) */
+@keyframes toastIn {
+  0%   { transform: translateY(-40px) scale(0.85); opacity: 0; }
+  60%  { transform: translateY(4px) scale(1.03); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes toastOut {
+  0%   { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+.anim-toast-in  { animation: toastIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.anim-toast-out { animation: toastOut 0.4s ease-in both; }
 
 /* ══════════════════════════════════════════════════════════════
    FARM TILE DECORATIONS
@@ -319,7 +581,14 @@ html, body {
    ══════════════════════════════════════════════════════════════ */
 .pixel-panel {
   background: #0f1f0f;
-  outline: 3px solid #2d4a2d;
+  /* was #2d4a2d — only 1.47:1 against --farm-bg (needs 3:1 per WCAG
+   * 1.4.11) and as low as ~1.05:1 against HowToPlayModal's black/75
+   * backdrop over the starter menu's now-illustrated (not flat-dark)
+   * background. #6aaa35 (--grass-a, already an established token) clears
+   * 3:1 against every real backdrop this panel appears on: 5.11:1 vs
+   * --farm-bg, 6.06:1 vs the panel's own fill, 3.67:1+ vs the modal
+   * backdrop even behind the brightest scene tones. */
+  outline: 3px solid #6aaa35;
   box-shadow: 0 4px 0 #1a0e00, inset 0 1px 0 rgba(255,255,255,0.04);
   clip-path: polygon(
     6px 0%, calc(100% - 6px) 0%,

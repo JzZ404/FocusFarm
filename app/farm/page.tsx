@@ -43,7 +43,7 @@ export default function FarmPage() {
           </Link>
           {[
             { label: "Focus",   value: `${profile.totalFocusMinutes}m` },
-            { label: "Streak",  value: `${profile.currentStreak}🔥` },
+            { label: "Streak",  value: profile.currentStreak },
             { label: "Animals", value: farm.tiles.length },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-center gap-2">
@@ -77,23 +77,25 @@ export default function FarmPage() {
       >
         <FarmCanvas />
 
-        {/* Floating button — centred near the bottom of the farm area */}
+        {/* Floating button — centred near the bottom of the farm area.
+            Was a bespoke rounded-xl pill in its own one-off color scheme
+            (a 4th, unrelated button language) with white text on #4ade80
+            — 1.74:1, badly failing the 4.5:1 text standard on the app's
+            main call-to-action. Now a real PixelButton (onScene: the farm
+            canvas is a varied illustrated scene like the starter menu, not
+            a flat dark page, so it needs the same scene-tuned border — see
+            .pixel-btn-on-scene in globals.css), which also folds this into
+            the same primary/secondary language used everywhere else. */}
         <div
           className="absolute bottom-8 left-1/2"
           style={{ transform: "translateX(-50%)" }}
         >
           {sessionRunning ? (
             /* Session in progress — show live timer + tap to return */
-            <button
+            <PixelButton
+              variant="outline"
+              onScene
               onClick={() => router.push("/session")}
-              className="font-pixel text-pixel-sm flex items-center gap-3 px-5 py-3 rounded-xl"
-              style={{
-                background: "rgba(10,21,10,0.55)",
-                border: "2px solid rgba(74,222,128,0.6)",
-                backdropFilter: "blur(6px)",
-                color: "#4ade80",
-                cursor: "pointer",
-              }}
             >
               <span
                 style={{
@@ -104,22 +106,12 @@ export default function FarmPage() {
                 }}
               />
               {fmt(elapsedSeconds)} · tap to return
-            </button>
+            </PixelButton>
           ) : (
-            /* No session — solid green button */
-            <button
-              onClick={() => router.push("/session")}
-              className="font-pixel text-pixel-md px-6 py-3 rounded-xl"
-              style={{
-                background: "#4ade80",
-                border: "none",
-                boxShadow: "0 4px 0 #16a34a, 0 6px 20px rgba(0,0,0,0.35)",
-                color: "#ffffff",
-                cursor: "pointer",
-              }}
-            >
-              START FOCUS SESSION
-            </button>
+            /* No session — primary CTA */
+            <PixelButton size="lg" onScene onClick={() => router.push("/session")}>
+              Start Focus Session
+            </PixelButton>
           )}
         </div>
       </div>

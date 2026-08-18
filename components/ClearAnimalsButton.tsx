@@ -25,10 +25,14 @@ export default function ClearAnimalsButton() {
       onClick={handleClick}
       title="Clear all animals"
       aria-label="Clear all animals"
-      className="fixed bottom-20 right-4 z-50 font-pixel text-pixel-md rounded-full w-10 h-10 flex items-center justify-center bg-red-950/60 hover:bg-red-900/70 backdrop-blur transition-colors"
-      style={{ border: "2px solid rgba(255,255,255,0.15)" }}
+      // Fill was red-950/60 with the same low-contrast rgba(255,255,255,.15)
+      // border as BackgroundMusic — bumped to /75 for the same reason (see
+      // that component): keeps the effective backdrop dark and stable
+      // regardless of the live farm scene behind it, so the shared
+      // .pixel-icon-btn border and text-red-300 glyph both clear 3:1+/4.3:1+.
+      className="pixel-icon-btn fixed bottom-20 right-4 z-50 text-pixel-md bg-red-950/75 hover:bg-red-900/80 text-red-300"
     >
-      🗑
+      <span aria-hidden="true">&times;</span>
     </button>
   );
 }
