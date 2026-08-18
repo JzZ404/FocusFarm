@@ -91,6 +91,7 @@ export default function AttentionDebugOverlay({
           {row("distractStreakMs", f.distractStreakMs)}
           {row("focusStreakMs", f.focusStreakMs)}
           {row("noFaceMs", f.noFaceMs)}
+          {row("gazeDownMs", f.gazeDownMs)}
           <div style={{ margin: "4px 0", opacity: 0.5 }}>── calibration ──</div>
           {row("earThreshold", f.earThreshold)}
           {row("progress", `${Math.round(f.calibrationProgress * 100)}%`)}

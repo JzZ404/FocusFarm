@@ -199,6 +199,46 @@ next live-tuning round has real numbers instead of a guess.
 **Confirmed fixed by user re-test (2026-08-18): edge-of-screen viewing no
 longer reads as looking_away.** `worldDeviationRX: 1.0` stays as shipped.
 
+**Item (e) — keyboard-vs-phone dwell tolerance (user's idea) — built.**
+Both behaviors are geometrically identical to this classifier (gaze
+pointed down); only sustained duration tells them apart. Added
+`gazeDownSinceMs`/`lookingDownGraceMs` (10s, taken directly from the
+user's own stated timing: keyboard glances stay under ~10s, phone-looking
+sustains 10-30s+): the downward component of gaze deviation is fully
+forgiven (zeroed for gazeScore's distance calculation) below the grace
+period, full effect after. Sideways deviation is never forgiven by this —
+a phone held off to the side while looking down still counts via the X
+component (tested explicitly). 4 new unit tests, all isolating the
+mechanism directly (brief glance stays at score 1, sustained stare past
+grace reduces score and flips to looking_away, sideways still counts
+during the grace window, streak resets once gaze returns level). No
+regression on the 2 real fixtures — but also no visible effect on their
+aggregate numbers, since those fixtures' phone-labeled segments are held
+far longer than 10s anyway. **Needs live testing to actually validate**,
+same as the edge-of-screen fix did.
+
+**Item (a) — iris-diameter-normalized eye-openness — tested, NOT
+promoted.** Built `computeIrisNormalizedOpenness()` (vertical eyelid gap
+÷ iris diameter instead of ÷ eye width) and a comparison script
+(`npm run attention:compare-eyes`) that calibrates both signals the same
+way against the real fixtures and compares them on `eyes_closed` (real
+closure) and `focused` (real openness) specifically — chosen because
+today's earlier investigation found `phone`-labeled closure reads likely
+reflect genuine squinting, not classifier error, so that label isn't a
+clean test of which raw signal is more accurate. Result: closedRecall
+essentially identical (98.3%→98.2%, 98.6%→98.6%), false-positive rate
+marginally better on one fixture (16.9%→15.5%), barely different on the
+other (10.7%→10.6%). Not a clear win — per the plan's own bar ("promote
+only if it beats calibrated EAR"), this doesn't clear it. **EAR stays as
+the live signal.** The function exists, tested, and unused — available if
+a future re-test with more data changes the picture.
+
+**Both changes committed on a dedicated branch
+(`attention-phase4-keyboard-iris`)**, off a `main` checkpoint commit
+(`5a536b9`) taken specifically so this work could be reverted cleanly if
+it didn't pan out — see the build-mandate memory for the full checkpoint
+rationale.
+
 ## Phase 4 — Revisit signals (started 2026-08-18)
 
 Plan: iris-diameter-normalized eye-openness as a shadow signal; decouple

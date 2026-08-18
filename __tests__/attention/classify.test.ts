@@ -21,6 +21,7 @@ import {
   neutralFrame,
   closedEyesFrame,
   headExtremeFrame,
+  lookingDownFrame,
   rotateFrame,
   withOverrides,
   NEUTRAL_OVERRIDES,
@@ -279,5 +280,101 @@ describe("Phase 2: elliptical, vertically-asymmetric deadzone", () => {
     // not neutralYaw is set, since the head-pose ellipse deliberately
     // isn't neutral-corrected (see classify.ts's comment on headExtreme).
     expect(calibrated.debug.headPoseMag).toBe(uncalibrated.debug.headPoseMag);
+  });
+});
+
+describe("Phase 4: keyboard-vs-phone downward-gaze dwell tolerance", () => {
+  // lookingDownFrame's pitch shift is large enough to also trip the
+  // head-pose ellipse on its own — widen head-pose radii to isolate the
+  // gaze/world-deviation dimension specifically, the one this mechanism
+  // actually touches (same isolation technique softScoring.test.ts uses,
+  // mirrored for the opposite dimension).
+  const ISOLATE_GAZE_ONLY = {
+    ...DEFAULT_CONFIG,
+    headPoseRX: 100,
+    headPoseRDown: 100,
+    headPoseRUp: 100,
+  };
+
+  it("a brief downward glance well under lookingDownGraceMs leaves gazeScore (and focusScore) at 1", () => {
+    let state = createInitialAttentionState();
+    let tNowMs = 0;
+    let result = classifyFrame(neutralFrame(), tNowMs, 0, state, ISOLATE_GAZE_ONLY);
+    state = result.state;
+    // A ~2s glance down — well under the 10s grace period.
+    for (let i = 0; i < 60; i++) {
+      tNowMs += 33;
+      result = classifyFrame(lookingDownFrame(), tNowMs, 33, state, ISOLATE_GAZE_ONLY);
+      state = result.state;
+    }
+    expect(result.debug.gazeScore).toBe(1);
+    expect(result.debug.focusScore).toBe(1);
+    expect(result.debug.gazeDownMs).toBeGreaterThan(0); // streak is tracked...
+    expect(result.debug.gazeDownMs).toBeLessThan(ISOLATE_GAZE_ONLY.lookingDownGraceMs); // ...but still within grace
+  });
+
+  it("a sustained downward gaze past lookingDownGraceMs reduces gazeScore and eventually reads as looking_away", () => {
+    let state = createInitialAttentionState();
+    let tNowMs = 0;
+    let result = classifyFrame(neutralFrame(), tNowMs, 0, state, ISOLATE_GAZE_ONLY);
+    state = result.state;
+    while (tNowMs < ISOLATE_GAZE_ONLY.lookingDownGraceMs + 3000) {
+      tNowMs += 100;
+      result = classifyFrame(lookingDownFrame(), tNowMs, 100, state, ISOLATE_GAZE_ONLY);
+      state = result.state;
+    }
+    expect(result.debug.gazeScore).toBeLessThan(1);
+    expect(result.debug.focusScore).toBeLessThan(1);
+    expect(result.isFocused).toBe(false);
+    expect(result.reason).toBe("looking_away");
+  });
+
+  it("sideways deviation is never forgiven by the downward-gaze grace, even while within it", () => {
+    // Combines a downward pitch shift (which alone would be fully
+    // forgiven, per the first test above) with a sideways yaw shift in
+    // the SAME frame — the sideways component must still degrade
+    // gazeScore regardless of the down-forgiveness being active.
+    const downAndSideways = withOverrides({
+      ...NEUTRAL_OVERRIDES,
+      1: { x: 0.68, y: 0.75, z: 0 },
+    });
+    let state = createInitialAttentionState();
+    let tNowMs = 0;
+    let result = classifyFrame(neutralFrame(), tNowMs, 0, state, ISOLATE_GAZE_ONLY);
+    state = result.state;
+    // Only a couple seconds in — well within the down-forgiveness window.
+    for (let i = 0; i < 30; i++) {
+      tNowMs += 33;
+      result = classifyFrame(downAndSideways, tNowMs, 33, state, ISOLATE_GAZE_ONLY);
+      state = result.state;
+    }
+    expect(result.debug.gazeDownMs).toBeLessThan(ISOLATE_GAZE_ONLY.lookingDownGraceMs);
+    expect(result.debug.gazeScore).toBeLessThan(1);
+  });
+
+  it("resets the down-streak timer once gaze returns to level", () => {
+    let state = createInitialAttentionState();
+    let tNowMs = 0;
+    let result = classifyFrame(neutralFrame(), tNowMs, 0, state, ISOLATE_GAZE_ONLY);
+    state = result.state;
+    for (let i = 0; i < 30; i++) {
+      tNowMs += 33;
+      result = classifyFrame(lookingDownFrame(), tNowMs, 33, state, ISOLATE_GAZE_ONLY);
+      state = result.state;
+    }
+    expect(result.debug.gazeDownMs).toBeGreaterThan(0);
+
+    // worldDevY is EMA-smoothed pitch, which has real inertia — one single
+    // neutral frame right after 30 sustained-down frames doesn't instantly
+    // snap back (by design, same smoothing every other signal gets), so
+    // give it enough frames to actually settle before checking the reset,
+    // rather than asserting an instant snap that wouldn't be correct here.
+    for (let i = 0; i < 20; i++) {
+      tNowMs += 33;
+      result = classifyFrame(neutralFrame(), tNowMs, 33, state, ISOLATE_GAZE_ONLY);
+      state = result.state;
+    }
+    expect(result.debug.gazeDownMs).toBe(0);
+    expect(result.state.gazeDownSinceMs).toBeNull();
   });
 });

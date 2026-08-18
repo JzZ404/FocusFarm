@@ -11,7 +11,8 @@
     "test:ci": "jest --ci --passWithNoTests",
     "attention:replay": "tsx scripts/replay.ts",
     "attention:eval": "tsx scripts/metrics.ts",
-    "attention:fit": "tsx scripts/fitCalibration.ts"
+    "attention:fit": "tsx scripts/fitCalibration.ts",
+    "attention:compare-eyes": "tsx scripts/compareEyeOpenness.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.14",
