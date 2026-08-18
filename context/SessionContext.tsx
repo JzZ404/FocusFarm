@@ -25,15 +25,22 @@ export interface SessionSummary {
 interface SessionContextValue {
   status: SessionStatus;
   elapsedSeconds: number;
+  /** Build Mandate Phase 3: accrued from ∫ focusScore dt, not a per-second
+   * binary sample — can be fractional. Round/floor at display time (see
+   * components/SessionTimer.tsx). */
   focusedSeconds: number;
   distractedSeconds: number;
+  /** UI-display-only binary snapshot — the plan's own words: "binary state
+   * kept only for UI display." Reward accrual below never reads this. */
   isFocused: boolean;
   faceDetected: boolean;
   lastSummary: SessionSummary | null;
   startSession: (targetMinutes?: number) => void;
   endSession: () => void;
   abandonSession: () => void;
-  setAttentionState: (focused: boolean, faceDetected: boolean) => void;
+  /** `focusScore` (0..1, continuous) drives reward accrual; `focused`/
+   * `faceDetected` are stored only for UI display. */
+  setAttentionState: (focused: boolean, faceDetected: boolean, focusScore: number) => void;
   dismissSummary: () => void;
 }
 
@@ -50,6 +57,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [lastSummary, setLastSummary] = useState<SessionSummary | null>(null);
   const sessionRef = useRef<FocusSession | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Build Mandate Phase 3: the continuous signal the 1s timer below
+  // integrates, updated imperatively (not React state — see
+  // setAttentionState) every classifier frame, not just on binary
+  // transitions. Starts at 0, matching the old isFocused-false default —
+  // preserves "Start without Camera" sessions earning nothing, same as
+  // before (that path never calls setAttentionState at all).
+  const focusScoreRef = useRef(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -72,6 +86,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         completed: false,
       };
       sessionRef.current = session;
+      focusScoreRef.current = 0;
       setStatus("running");
       setElapsedSeconds(0);
       setFocusedSeconds(0);
@@ -81,25 +96,39 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [clearTimer]
   );
 
+  // Build Mandate Phase 3: accrues ∫ focusScore dt instead of sampling the
+  // binary isFocused snapshot each tick. Still a 1s cadence (unchanged
+  // from before this phase — a deliberate scope cut, not an oversight:
+  // sub-second integration would be a bigger, separate change to this
+  // timer's architecture that nothing in the plan's acceptance criteria
+  // actually requires; switching WHAT gets sampled each tick from a binary
+  // flag to the continuous score is what "smooths" accrual here, not a
+  // higher sample rate — see docs/attention-baseline.md's Phase 3 section).
+  //
+  // No longer depends on `isFocused` (only `status`) — incidental fix
+  // found while doing this: the old effect re-created this interval on
+  // EVERY focused/distracted flip (isFocused was a dependency), which
+  // meant frequent flickering could disrupt the timer's actual 1000ms
+  // cadence. Reading focusScoreRef imperatively instead removes that
+  // dependency entirely.
   useEffect(() => {
     if (status !== "running") return;
     timerRef.current = setInterval(() => {
       setElapsedSeconds((s) => s + 1);
-      if (isFocused) {
-        setFocusedSeconds((s) => {
-          if (sessionRef.current)
-            sessionRef.current.actualFocusedSeconds = s + 1;
-          return s + 1;
-        });
-      } else {
-        setDistractedSeconds((s) => {
-          if (sessionRef.current) sessionRef.current.distractedSeconds = s + 1;
-          return s + 1;
-        });
-      }
+      const score = focusScoreRef.current;
+      setFocusedSeconds((s) => {
+        const next = s + score;
+        if (sessionRef.current) sessionRef.current.actualFocusedSeconds = next;
+        return next;
+      });
+      setDistractedSeconds((s) => {
+        const next = s + (1 - score);
+        if (sessionRef.current) sessionRef.current.distractedSeconds = next;
+        return next;
+      });
     }, 1000);
     return () => clearTimer();
-  }, [status, isFocused, clearTimer]);
+  }, [status, clearTimer]);
 
   const endSession = useCallback(() => {
     if (status !== "running" || !sessionRef.current) return;
@@ -154,6 +183,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const session = { ...sessionRef.current, endTime: Date.now(), completed: false };
     saveSession(session);
     sessionRef.current = null;
+    focusScoreRef.current = 0;
     setStatus("abandoned");
     setElapsedSeconds(0);
     setFocusedSeconds(0);
@@ -161,9 +191,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [clearTimer]);
 
   const setAttentionState = useCallback(
-    (focused: boolean, face: boolean) => {
+    (focused: boolean, face: boolean, focusScore: number) => {
       setIsFocused(focused);
       setFaceDetected(face);
+      focusScoreRef.current = focusScore;
     },
     []
   );

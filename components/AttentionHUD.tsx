@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { DistractionReason } from "@/lib/hooks/useAttention";
+import PixelButton from "./PixelButton";
 
 interface AttentionHUDProps {
   isFocused: boolean;
@@ -53,7 +54,7 @@ export default function AttentionHUD({
     <div className="flex flex-col items-center gap-3">
       {error && (
         <div className="font-pixel text-pixel-sm text-yellow-400 bg-yellow-900/30 border border-yellow-500/30 rounded px-3 py-2 text-center max-w-xs">
-          ⚠️ {error}
+          {error}
         </div>
       )}
 
@@ -73,15 +74,28 @@ export default function AttentionHUD({
             />
             {!showPreview && (
               <div className="w-full h-full bg-farm-panel flex items-center justify-center">
-                <span className="text-2xl">📷</span>
+                <span className="font-pixel text-pixel-sm text-gray-500">Preview hidden</span>
               </div>
             )}
-            <button
+            {/* Was a bare 11px-tall button with no padding — under WCAG
+                2.5.8's 24x24px target-size minimum — and its default focus
+                ring would've been cropped by this container's
+                overflow-hidden (see pixel-btn-tertiary-inset in globals.css).
+                Backing bumped toward-opaque (was black/50) since the actual
+                backdrop here is a live, unpredictable camera feed, not a
+                fixed app color — needs to stay legible against any frame. */}
+            <PixelButton
+              variant="tertiary"
               onClick={() => setShowPreview((v) => !v)}
-              className="absolute bottom-1 right-1 font-pixel text-pixel-xs bg-black/50 text-white rounded px-1.5 py-0.5"
+              className="pixel-btn-tertiary-inset absolute bottom-1 right-1"
+              // Tailwind's bg-black/85 utility loses a cascade tie against
+              // .pixel-btn-tertiary's own `background: transparent` (that
+              // class rule is declared later in globals.css than
+              // @tailwind utilities) — inline style always wins instead.
+              style={{ background: "rgba(0,0,0,0.85)" }}
             >
               {showPreview ? "Hide" : "Show"}
-            </button>
+            </PixelButton>
           </>
         ) : (
           <div className="w-full h-full bg-farm-panel flex items-center justify-center">

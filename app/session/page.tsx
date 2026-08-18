@@ -1,13 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/context/SessionContext";
 import { useFarm } from "@/context/FarmContext";
 import { useWebcam } from "@/lib/hooks/useWebcam";
 import { useAttention } from "@/lib/hooks/useAttention";
+import { useNeutralCalibration } from "@/lib/hooks/useNeutralCalibration";
+import { getAttentionCalibration, saveAttentionCalibration } from "@/lib/storage";
 import AttentionHUD from "@/components/AttentionHUD";
+import AttentionDebugOverlay from "@/components/AttentionDebugOverlay";
+import CalibrationScreen from "@/components/CalibrationScreen";
 import SessionTimer from "@/components/SessionTimer";
 import CoinDisplay from "@/components/CoinDisplay";
 import PixelButton from "@/components/PixelButton";
@@ -34,6 +38,27 @@ function SessionPageInner() {
     webcam.status === "active" && status === "running"
   );
 
+  // Build Mandate Phase 2: neutral-pose calibration, run once (persisted)
+  // before a session's first-ever start, re-runnable via "Recalibrate".
+  // Only ever active pre-session (never concurrently with useAttention
+  // above, which requires status === "running") — see
+  // useNeutralCalibration's doc comment for why this is a separate
+  // detector instance rather than a mode on useAttention.
+  const [calibrationStep, setCalibrationStep] = useState<"idle" | "calibrating">("idle");
+  const calibration = useNeutralCalibration(
+    webcam.videoRef,
+    webcam.status === "active" && calibrationStep === "calibrating"
+  );
+
+  useEffect(() => {
+    if (calibrationStep === "calibrating" && calibration.status === "ok" && calibration.calibration) {
+      saveAttentionCalibration(calibration.calibration);
+      setCalibrationStep("idle");
+      startSession(25);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startSession is stable (useCallback in SessionContext); including it would be a no-op dep, omitted to keep this effect keyed only on the calibration result
+  }, [calibrationStep, calibration.status, calibration.calibration]);
+
   // Auto-reconnect camera when returning to this page mid-session.
   // When the user navigates away and back, the webcam stream has been
   // released (component unmounted) but the session is still running.
@@ -45,28 +70,47 @@ function SessionPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally runs once on mount only
 
+  // Build Mandate Phase 3: attention.focusScore changes essentially every
+  // classifier frame (it's continuous), so including it as a dependency is
+  // what pushes a fresh score into SessionContext's reward-accrual ref on
+  // every frame, not just on binary focused/distracted transitions.
   useEffect(() => {
     if (status === "running") {
-      setAttentionState(attention.isFocused, attention.faceDetected);
+      setAttentionState(attention.isFocused, attention.faceDetected, attention.focusScore);
     }
-  }, [attention.isFocused, attention.faceDetected, status, setAttentionState]);
+  }, [attention.isFocused, attention.faceDetected, attention.focusScore, status, setAttentionState]);
 
   async function handleStart() {
     const granted = await webcam.requestCamera();
-    if (granted) startSession(25);
+    if (!granted) return;
+    if (getAttentionCalibration()) {
+      startSession(25);
+    } else {
+      setCalibrationStep("calibrating");
+    }
+  }
+
+  async function handleRecalibrate() {
+    const granted = await webcam.requestCamera();
+    if (granted) setCalibrationStep("calibrating");
   }
 
   const isRunning = status === "running";
+  const isCalibrating = calibrationStep === "calibrating";
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#1a2e1a" }}>
 
-      {/* Header */}
+      {/* Header — grid with two equal-width flanking columns, not flex+
+          justify-between, so the title is truly centered on the full header
+          width regardless of the left/right content's own widths (which
+          differ: two buttons vs. one coin badge). Same pattern app/farm's
+          header already uses. */}
       <header
-        className="flex items-center justify-between px-5 py-3"
-        style={{ background: "#0a150a", borderBottom: "3px solid #2d4a2d" }}
+        className="grid items-center px-5 py-3"
+        style={{ gridTemplateColumns: "1fr auto 1fr", background: "#0a150a", borderBottom: "3px solid #2d4a2d" }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-self-start">
           <Link href="/">
             <PixelButton variant="outline" size="sm">Home</PixelButton>
           </Link>
@@ -74,8 +118,10 @@ function SessionPageInner() {
             <PixelButton variant="outline" size="sm">Farm</PixelButton>
           </Link>
         </div>
-        <span className="font-pixel text-pixel-lg text-white">Focus Session</span>
-        <CoinDisplay balance={ledger.balance} size="sm" />
+        <span className="font-pixel text-pixel-lg text-white justify-self-center">Focus Session</span>
+        <div className="justify-self-end">
+          <CoinDisplay balance={ledger.balance} size="sm" />
+        </div>
       </header>
 
       {/* Session summary modal */}
@@ -84,7 +130,6 @@ function SessionPageInner() {
           <div
             className="pixel-panel flex flex-col items-center gap-5 w-full max-w-sm p-8"
           >
-            <div className="text-4xl">🎉</div>
             <h2 className="font-pixel text-pixel-lg text-green-400">Session Complete!</h2>
 
             <div className="flex flex-col gap-3 w-full">
@@ -152,14 +197,34 @@ function SessionPageInner() {
         )}
 
         {/* Controls */}
-        {status === "idle" || status === "abandoned" ? (
-          <div className="flex flex-col items-center gap-3">
+        {isCalibrating ? (
+          <CalibrationScreen
+            status={calibration.status}
+            progress={calibration.progress}
+            retryReason={calibration.retryReason}
+            error={calibration.error}
+            onRetry={calibration.retry}
+          />
+        ) : status === "idle" || status === "abandoned" ? (
+          // Was items-center — same size/padding prop on both buttons, but
+          // "Start without Camera" is 3 characters longer than "Start with
+          // Camera", so each button sized to its own text and rendered at a
+          // visibly different width. w-fit sizes the container to its
+          // widest child's natural width (not a guessed fixed cap, which
+          // wrapped the longer label to 2 lines); items-stretch then makes
+          // both buttons fill that same width.
+          <div className="flex flex-col items-stretch gap-3 w-fit">
             <PixelButton size="lg" onClick={handleStart}>
               Start with Camera
             </PixelButton>
-            <PixelButton variant="outline" size="sm" onClick={() => startSession(25)}>
+            <PixelButton variant="outline" size="lg" onClick={() => startSession(25)}>
               Start without Camera
             </PixelButton>
+            {webcam.status === "active" && (
+              <PixelButton variant="tertiary" size="sm" onClick={handleRecalibrate}>
+                Recalibrate
+              </PixelButton>
+            )}
           </div>
         ) : isRunning ? (
           <div className="flex gap-3">
@@ -169,7 +234,7 @@ function SessionPageInner() {
         ) : null}
 
         {/* Reward tier reference card */}
-        {(status === "idle" || status === "abandoned") && (
+        {(status === "idle" || status === "abandoned") && !isCalibrating && (
           <div className="pixel-panel p-4 w-full max-w-xs">
             <p className="font-pixel text-pixel-xs text-center text-gray-400 mb-3">
               Coin Rewards
@@ -194,6 +259,12 @@ function SessionPageInner() {
           </div>
         )}
       </main>
+
+      {/* Suspense: AttentionDebugOverlay reads useSearchParams(), which
+          Next.js requires a Suspense boundary around. */}
+      <Suspense fallback={null}>
+        <AttentionDebugOverlay attention={attention} />
+      </Suspense>
     </div>
   );
 }

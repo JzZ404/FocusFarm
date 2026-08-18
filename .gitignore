@@ -21,3 +21,6 @@ final-project-codebase-JzZ404.git/
 .env.local
 .env*.local
 .gstack/
+
+# Large recorded attention fixtures — kept on disk, not in git history.
+fixtures/attention/*.json

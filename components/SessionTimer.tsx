@@ -7,10 +7,15 @@ interface SessionTimerProps {
 }
 
 function fmt(seconds: number): string {
-  const m = Math.floor(seconds / 60)
+  // Build Mandate Phase 3: focusedSeconds/distractedSeconds can now be
+  // fractional (accrued from ∫ focusScore dt — see SessionContext.tsx),
+  // floored here purely for mm:ss display; the precise value is still
+  // what's stored/used for the coin calculation.
+  const whole = Math.floor(seconds);
+  const m = Math.floor(whole / 60)
     .toString()
     .padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
+  const s = (whole % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
 

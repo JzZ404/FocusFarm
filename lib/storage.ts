@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import type { NeutralCalibration } from "./attention/neutralCalibration";
 
 export interface UserProfile {
   userId: string;
@@ -52,6 +53,7 @@ const KEYS = {
   coins: "focusfarm:coins",
   sessions: "focusfarm:sessions",
   farm: "focusfarm:farm",
+  attentionCalibration: "focusfarm:attention-calibration",
 } as const;
 
 function safeGet<T>(key: string, fallback: T): T {
@@ -141,6 +143,23 @@ export function clearFarmTiles(): FarmGrid {
   const cleared: FarmGrid = { ...getFarm(), tiles: [] };
   saveFarm(cleared);
   return cleared;
+}
+
+// Build Mandate Phase 2: one-time (re-runnable) neutral-pose calibration,
+// persisted so a session doesn't have to recapture it every time. See
+// lib/attention/neutralCalibration.ts for how this gets produced and
+// lib/hooks/useAttention.ts for how it's applied.
+export function getAttentionCalibration(): NeutralCalibration | null {
+  return safeGet<NeutralCalibration | null>(KEYS.attentionCalibration, null);
+}
+
+export function saveAttentionCalibration(calibration: NeutralCalibration): void {
+  safeSet(KEYS.attentionCalibration, calibration);
+}
+
+export function clearAttentionCalibration(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(KEYS.attentionCalibration);
 }
 
 export function clearAll(): void {
