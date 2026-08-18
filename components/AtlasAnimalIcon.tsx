@@ -40,7 +40,6 @@ function toSpecies(itemId: string): string {
   const MAP: Record<string, string> = {
     shiba_dog: "dog",
     shiba: "dog",
-    cat: "raccoon", // cat not in new atlas
   };
   return MAP[slug] ?? slug;
 }

@@ -5,10 +5,14 @@ export interface ShopItem {
   cost: number;
   // Sprite sheet path and which of the 3 horizontal positions (0=left, 1=middle, 2=right)
   sprite: { sheet: string; pos: 0 | 1 | 2 };
-  // Fallback emoji for small displays / accessibility
-  emoji: string;
   description: string;
-  unlockCondition?: string;
+  // Was a free-text `unlockCondition: string` ("Requires 60 focus minutes")
+  // that was purely decorative — nothing ever actually gated the purchase
+  // on it, so buying an item shown as "requiring" 200 focus minutes worked
+  // fine with 0. A number ShopItemCard/purchaseItem can both check against
+  // profile.totalFocusMinutes closes that gap and removes the risk of the
+  // display text and the real gate silently drifting apart.
+  unlockMinFocusMinutes?: number;
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
@@ -19,7 +23,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 50,
     sprite: { sheet: "/assets/sprites/sheet7.png", pos: 0 },
-    emoji: "🐔",
     description: "A happy clucking chicken for your farm.",
   },
   {
@@ -28,7 +31,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 80,
     sprite: { sheet: "/assets/sprites/sheet7.png", pos: 1 },
-    emoji: "🦇",
     description: "A spooky little bat that loves the night.",
   },
   {
@@ -37,7 +39,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 60,
     sprite: { sheet: "/assets/sprites/sheet7.png", pos: 2 },
-    emoji: "🐝",
     description: "A busy bee that pollinates your farm.",
   },
 
@@ -48,7 +49,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 75,
     sprite: { sheet: "/assets/sprites/sheet5.png", pos: 0 },
-    emoji: "🐑",
     description: "A fluffy sheep that loves grazing.",
   },
   {
@@ -57,9 +57,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 150,
     sprite: { sheet: "/assets/sprites/sheet5.png", pos: 1 },
-    emoji: "🐄",
     description: "A gentle cow — the pride of any farm.",
-    unlockCondition: "Requires 60 focus minutes",
   },
   {
     id: "animal_shiba",
@@ -67,27 +65,17 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 120,
     sprite: { sheet: "/assets/sprites/sheet5.png", pos: 2 },
-    emoji: "🐕",
     description: "Much wow. Very focus. Such farm.",
   },
 
-  // ── sheet6: Cat · Squirrel · Duck ────────────────────────────────────
-  {
-    id: "animal_cat",
-    name: "Cat",
-    category: "animal",
-    cost: 90,
-    sprite: { sheet: "/assets/sprites/sheet6.png", pos: 0 },
-    emoji: "🐱",
-    description: "A curious cat that roams the farm.",
-  },
+  // ── sheet6: Squirrel · Duck (pos 0, Cat, removed — no atlas art, was
+  // silently rendering as a raccoon both in the shop and on the farm) ──
   {
     id: "animal_squirrel",
     name: "Squirrel",
     category: "animal",
     cost: 70,
     sprite: { sheet: "/assets/sprites/sheet6.png", pos: 1 },
-    emoji: "🐿️",
     description: "A speedy squirrel collecting acorns.",
   },
   {
@@ -96,7 +84,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 65,
     sprite: { sheet: "/assets/sprites/sheet6.png", pos: 2 },
-    emoji: "🦆",
     description: "A waddling mallard duck.",
   },
 
@@ -107,9 +94,8 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 200,
     sprite: { sheet: "/assets/sprites/sheet4.png", pos: 0 },
-    emoji: "🐼",
     description: "A rare giant panda. Very distinguished.",
-    unlockCondition: "Requires 120 focus minutes",
+    unlockMinFocusMinutes: 120,
   },
   {
     id: "animal_koala",
@@ -117,9 +103,8 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 175,
     sprite: { sheet: "/assets/sprites/sheet4.png", pos: 1 },
-    emoji: "🐨",
     description: "A sleepy koala chilling in your farm.",
-    unlockCondition: "Requires 90 focus minutes",
+    unlockMinFocusMinutes: 90,
   },
   {
     id: "animal_pig",
@@ -127,7 +112,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 85,
     sprite: { sheet: "/assets/sprites/sheet4.png", pos: 2 },
-    emoji: "🐷",
     description: "A round and happy pink pig.",
   },
 
@@ -138,7 +122,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 110,
     sprite: { sheet: "/assets/sprites/sheet1.png", pos: 0 },
-    emoji: "🦊",
     description: "A clever fox with a bushy tail.",
   },
   {
@@ -147,7 +130,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 130,
     sprite: { sheet: "/assets/sprites/sheet1.png", pos: 1 },
-    emoji: "🦉",
     description: "A wise owl to guard your farm at night.",
   },
   {
@@ -156,7 +138,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 140,
     sprite: { sheet: "/assets/sprites/sheet1.png", pos: 2 },
-    emoji: "🐧",
     description: "A tuxedoed penguin waddling around.",
   },
 
@@ -167,7 +148,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 95,
     sprite: { sheet: "/assets/sprites/sheet2.png", pos: 0 },
-    emoji: "🦝",
     description: "A masked raccoon — mischievous but cute.",
   },
   {
@@ -176,9 +156,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 160,
     sprite: { sheet: "/assets/sprites/sheet2.png", pos: 1 },
-    emoji: "🦌",
     description: "A graceful deer with elegant antlers.",
-    unlockCondition: "Requires 80 focus minutes",
   },
   {
     id: "animal_frog",
@@ -186,7 +164,6 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 45,
     sprite: { sheet: "/assets/sprites/sheet2.png", pos: 2 },
-    emoji: "🐸",
     description: "A cheerful green frog by the pond.",
   },
 
@@ -197,9 +174,8 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 220,
     sprite: { sheet: "/assets/sprites/sheet3.png", pos: 0 },
-    emoji: "🐘",
     description: "A gentle giant elephant.",
-    unlockCondition: "Requires 150 focus minutes",
+    unlockMinFocusMinutes: 150,
   },
   {
     id: "animal_lion",
@@ -207,9 +183,8 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 250,
     sprite: { sheet: "/assets/sprites/sheet3.png", pos: 1 },
-    emoji: "🦁",
     description: "The king of the farm.",
-    unlockCondition: "Requires 200 focus minutes",
+    unlockMinFocusMinutes: 200,
   },
   {
     id: "animal_monkey",
@@ -217,9 +192,8 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: "animal",
     cost: 180,
     sprite: { sheet: "/assets/sprites/sheet3.png", pos: 2 },
-    emoji: "🐒",
     description: "A playful monkey swinging around.",
-    unlockCondition: "Requires 100 focus minutes",
+    unlockMinFocusMinutes: 100,
   },
 
 ];

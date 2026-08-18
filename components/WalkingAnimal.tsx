@@ -76,60 +76,76 @@ export default function WalkingAnimal({
       pickTarget();
     }
 
+    function render() {
+      if (!ready || width <= 0) return;
+      const ctx = canvas!.getContext("2d") as CanvasRenderingContext2D;
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, width, height);
+
+      const frames = getAtlasFrames();
+      const img = getAtlasImage();
+      if (frames && img) {
+        const state = pause > 0 ? `${facing}Idle` : `${facing}${walkToggle ? "Walk" : "Idle"}`;
+        const data = frames[`${species}/${state}`] ?? frames[`${species}/${facing}Idle`];
+        if (data) {
+          const { frame: f, spriteSourceSize: sss, sourceSize: ss } = data;
+          const scale = displayHeight / ss.h;
+          const dw = f.w * scale;
+          const dh = f.h * scale;
+          const dx = x - (ss.w * scale) / 2 + sss.x * scale;
+          const dy = height - dh; // feet on the bottom edge of the layer
+          ctx.drawImage(img, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
+        }
+      }
+    }
+
     function loop(now: number) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      if (ready && width > 0) {
-        const ctx = canvas!.getContext("2d") as CanvasRenderingContext2D;
-        ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, width, height);
-
-        if (pause > 0) {
-          pause -= dt;
-          if (pause <= 0) pickTarget();
-        } else if (Math.abs(targetX - x) <= ARRIVE_EPS) {
-          pause = TURN_PAUSE;
-        } else {
-          const step = SPEED * dt;
-          x += facing === "right" ? Math.min(step, targetX - x) : -Math.min(step, x - targetX);
-          frameTime += dt;
-          if (frameTime > WALK_FRAME_TIME) { walkToggle = !walkToggle; frameTime = 0; }
-        }
-
-        const frames = getAtlasFrames();
-        const img = getAtlasImage();
-        if (frames && img) {
-          const state = pause > 0 ? `${facing}Idle` : `${facing}${walkToggle ? "Walk" : "Idle"}`;
-          const data = frames[`${species}/${state}`] ?? frames[`${species}/${facing}Idle`];
-          if (data) {
-            const { frame: f, spriteSourceSize: sss, sourceSize: ss } = data;
-            const scale = displayHeight / ss.h;
-            const dw = f.w * scale;
-            const dh = f.h * scale;
-            const dx = x - (ss.w * scale) / 2 + sss.x * scale;
-            const dy = height - dh; // feet on the bottom edge of the layer
-            ctx.drawImage(img, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
-          }
-        }
+      if (pause > 0) {
+        pause -= dt;
+        if (pause <= 0) pickTarget();
+      } else if (Math.abs(targetX - x) <= ARRIVE_EPS) {
+        pause = TURN_PAUSE;
+      } else {
+        const step = SPEED * dt;
+        x += facing === "right" ? Math.min(step, targetX - x) : -Math.min(step, x - targetX);
+        frameTime += dt;
+        if (frameTime > WALK_FRAME_TIME) { walkToggle = !walkToggle; frameTime = 0; }
       }
+      render();
 
       rafId = requestAnimationFrame(loop);
+    }
+
+    // Respect prefers-reduced-motion (WCAG 2.2.2) — the patrol is
+    // non-essential auto-updating motion that starts on its own and never
+    // stops, so a reduced-motion user gets one still idle frame instead of
+    // a chicken pacing back and forth indefinitely. Live-listens for the
+    // setting changing while the page is open.
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function applyMotionPreference() {
+      if (rafId) cancelAnimationFrame(rafId);
+      lastTime = performance.now();
+      if (media.matches) render();
+      else rafId = requestAnimationFrame(loop);
     }
 
     async function init() {
       resize();
       await loadAtlas();
       ready = true;
-      lastTime = performance.now();
-      rafId = requestAnimationFrame(loop);
+      applyMotionPreference();
     }
 
     window.addEventListener("resize", resize);
+    media.addEventListener("change", applyMotionPreference);
     init();
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", resize);
+      media.removeEventListener("change", applyMotionPreference);
     };
   }, [species, displayHeight, marginLeft, marginRight]);
 

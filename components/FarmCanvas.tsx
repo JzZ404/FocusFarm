@@ -177,7 +177,7 @@ function loadAtlas(): Promise<void> {
 // ── Map shop item IDs → atlas species ─────────────────────────────────────────
 function animalKey(itemId: string): string {
   const slug = itemId.replace(/^animal_/, "");
-  const MAP: Record<string, string> = { shiba_dog: "dog", shiba: "dog", cat: "raccoon" };
+  const MAP: Record<string, string> = { shiba_dog: "dog", shiba: "dog" };
   return MAP[slug] ?? slug;
 }
 
@@ -218,11 +218,28 @@ function getStateName(a: Animal): string {
 }
 
 // ── Script loader ─────────────────────────────────────────────────────────────
+// Guards against a race: React Strict Mode (on by default in Next.js dev)
+// double-invokes effects, so this can run twice back-to-back. The old
+// version treated "a <script> tag with this src already exists" as
+// "already finished loading" and resolved immediately — but the first
+// invocation's tag may still be mid-load when the second one checks,
+// resolving its promise (and everything chained after it, like
+// FFScene.render()) before the script has actually executed and set
+// window.FFScene/window.FF. Track completion explicitly instead of
+// inferring it from the tag's mere presence.
 function loadScript(src: string): Promise<void> {
   return new Promise((res, rej) => {
-    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") { res(); return; }
+      existing.addEventListener("load", () => res());
+      existing.addEventListener("error", () => rej());
+      return;
+    }
     const s = document.createElement("script");
-    s.src = src; s.onload = () => res(); s.onerror = rej;
+    s.src = src;
+    s.onload = () => { s.dataset.loaded = "true"; res(); };
+    s.onerror = rej;
     document.head.appendChild(s);
   });
 }

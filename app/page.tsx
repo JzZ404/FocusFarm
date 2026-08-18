@@ -5,22 +5,39 @@ import { useRouter } from "next/navigation";
 import PixelButton from "@/components/PixelButton";
 import HowToPlayModal from "@/components/HowToPlayModal";
 import WalkingAnimal from "@/components/WalkingAnimal";
+import StartMenuBackground from "@/components/StartMenuBackground";
 
 export default function StartPage() {
   const router = useRouter();
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   return (
-    <div
-      className="flex flex-col items-center justify-center gap-16 px-6"
-      style={{ height: "100dvh", background: "var(--farm-bg)" }}
+    // <main>, not <div> — gives screen-reader users a landmark to jump
+    // straight to the page's primary content instead of tabbing/reading
+    // through everything from the top.
+    <main
+      className="relative isolate flex flex-col items-center justify-center gap-16 px-6"
+      // relative+isolate: gives this div its own stacking context so the
+      // background canvas (position:absolute, z-index:-10 inside it) stacks
+      // behind this div's own children but still above this div's own
+      // background paint. Without isolate, a fixed/negative-z descendant of
+      // a non-positioned div escapes to the ROOT stacking context and ends
+      // up painted behind this div's background entirely — invisible.
+      // #a9d3e6 (sky-top blue) is the fallback shown for the instant before
+      // StartMenuBackground's scripts load and paint — matches its
+      // gradient's top color so there's no dark-green flash under the sky.
+      style={{ height: "100dvh", background: "#a9d3e6" }}
     >
+      <StartMenuBackground />
       {/* Logo asset (public/images/focusfarm-logo.png) — replaces the earlier
           CSS-built two-line title (text-pixel-3xl + text-pixel-stroke). That
           utility class stays in globals.css for reuse on other hero text;
           see DESIGN.md changelog. imageRendering: pixelated keeps the pixel
-          art crisp when scaled, matching FarmCanvas's .pixelated pattern. */}
-      <div className="relative w-full max-w-md">
+          art crisp when scaled, matching FarmCanvas's .pixelated pattern.
+          Wrapped in an <h1> (not just a bare <img>) so the page has a real
+          heading landmark — Tailwind's preflight zeroes h1's default
+          margin/font-size, so this is a no-op visually, purely structural. */}
+      <h1 className="relative w-full max-w-md m-0">
         <img
           src="/images/focusfarm-logo.png"
           alt="FocusFarm"
@@ -37,15 +54,16 @@ export default function StartPage() {
         <div className="absolute inset-x-0" style={{ top: -64, height: 64 }}>
           <WalkingAnimal species="chicken" displayHeight={64} marginLeft={18} marginRight={70} />
         </div>
-      </div>
+      </h1>
 
       <div className="flex flex-col items-stretch gap-4 w-full max-w-xs">
-        <PixelButton size="lg" onClick={() => router.push("/farm")}>
+        <PixelButton size="lg" onScene onClick={() => router.push("/farm")}>
           Start
         </PixelButton>
         <PixelButton
           variant="outline"
           size="lg"
+          onScene
           onClick={() => router.push("/shop")}
         >
           Shop
@@ -53,6 +71,7 @@ export default function StartPage() {
         <PixelButton
           variant="outline"
           size="lg"
+          onScene
           onClick={() => setShowHowToPlay(true)}
         >
           How to Play
@@ -62,6 +81,6 @@ export default function StartPage() {
       {showHowToPlay && (
         <HowToPlayModal onClose={() => setShowHowToPlay(false)} />
       )}
-    </div>
+    </main>
   );
 }

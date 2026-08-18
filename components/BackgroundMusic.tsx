@@ -52,10 +52,21 @@ export default function BackgroundMusic() {
         onClick={toggle}
         title={playing ? "Mute music" : "Play music"}
         aria-label={playing ? "Mute music" : "Play music"}
-        className="fixed bottom-4 right-4 z-50 font-pixel text-pixel-md rounded-full w-10 h-10 flex items-center justify-center bg-black/50 hover:bg-black/70 backdrop-blur transition-colors"
-        style={{ border: "2px solid rgba(255,255,255,0.15)" }}
+        className="pixel-icon-btn fixed bottom-4 right-4 z-50 text-pixel-md bg-black/70 hover:bg-black/80"
+        // Fill was black/50 with a rgba(255,255,255,.15) border — against
+        // this button's real backdrops (dark pages vs. the light farm-page
+        // canvas) the border measured 1.28–1.55:1 and the muted-state glyph
+        // color (#6b7280) as low as 1.17:1. Bumped fill opacity so the
+        // effective backdrop stays close to black regardless of what's
+        // behind it (this sits over a live animated scene on /farm, so a
+        // fixed contrast number against a moving background isn't
+        // guaranteed otherwise) — .pixel-icon-btn's shared border then
+        // clears 3:1+ in every real context.
+        style={{ color: playing ? "#e5e7eb" : "#9ca3af" }}
       >
-        {playing ? "🎵" : "🔇"}
+        {/* Musical note glyph (U+266A), not an emoji pictograph — dimmed
+            when muted instead of swapping to a different symbol. */}
+        <span aria-hidden="true">♪</span>
       </button>
     </>
   );
