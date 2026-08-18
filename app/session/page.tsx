@@ -221,7 +221,12 @@ function SessionPageInner() {
               Start without Camera
             </PixelButton>
             {webcam.status === "active" && (
-              <PixelButton variant="tertiary" size="sm" onClick={handleRecalibrate}>
+              // variant "outline" not "tertiary": PixelButton.tsx on main
+              // doesn't have the tertiary variant (it lives in the
+              // unmerged feature/starter-menu-and-design-system branch) —
+              // using it here is what broke the Vercel build. Switch back
+              // once that branch merges.
+              <PixelButton variant="outline" size="sm" onClick={handleRecalibrate}>
                 Recalibrate
               </PixelButton>
             )}

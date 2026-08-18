@@ -83,15 +83,17 @@ export default function AttentionHUD({
                 overflow-hidden (see pixel-btn-tertiary-inset in globals.css).
                 Backing bumped toward-opaque (was black/50) since the actual
                 backdrop here is a live, unpredictable camera feed, not a
-                fixed app color — needs to stay legible against any frame. */}
+                fixed app color — needs to stay legible against any frame.
+                variant temporarily "outline" instead of "tertiary": the
+                tertiary variant/its CSS lives in the unmerged
+                feature/starter-menu-and-design-system work, not on main —
+                using it here broke the Vercel build (PixelButton.tsx on
+                main only supports primary/outline/danger). Switch back to
+                "tertiary" once that branch merges. */}
             <PixelButton
-              variant="tertiary"
+              variant="outline"
               onClick={() => setShowPreview((v) => !v)}
               className="pixel-btn-tertiary-inset absolute bottom-1 right-1"
-              // Tailwind's bg-black/85 utility loses a cascade tie against
-              // .pixel-btn-tertiary's own `background: transparent` (that
-              // class rule is declared later in globals.css than
-              // @tailwind utilities) — inline style always wins instead.
               style={{ background: "rgba(0,0,0,0.85)" }}
             >
               {showPreview ? "Hide" : "Show"}
