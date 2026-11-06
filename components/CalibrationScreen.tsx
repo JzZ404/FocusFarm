@@ -31,7 +31,7 @@ export default function CalibrationScreen({
 }: CalibrationScreenProps) {
   if (status === "error") {
     return (
-      <div className="pixel-panel p-4 w-full max-w-xs flex flex-col items-center gap-3">
+      <div className="pixel-panel p-5 w-full flex flex-col items-center gap-4">
         <p className="font-pixel text-pixel-sm text-yellow-400 text-center">
           {error ?? "Calibration failed."}
         </p>
@@ -41,7 +41,7 @@ export default function CalibrationScreen({
   }
 
   return (
-    <div className="pixel-panel p-4 w-full max-w-xs flex flex-col items-center gap-3">
+    <div className="pixel-panel p-5 w-full flex flex-col items-center gap-4">
       <p className="font-pixel text-pixel-sm text-white text-center">
         Look at the center of your screen and hold still
       </p>

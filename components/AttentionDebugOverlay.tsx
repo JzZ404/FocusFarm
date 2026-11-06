@@ -4,9 +4,10 @@ import { useSearchParams } from "next/navigation";
 import type { AttentionState } from "@/lib/hooks/useAttention";
 
 /**
- * Dev-only introspection panel for the attention detector — Phase 0's
- * whole point. Shown when `?debug=1` is in the URL, or always in
- * non-production builds (so local dev doesn't need the query param).
+ * Introspection panel for the attention detector — Phase 0's whole point.
+ * Shown only when `?debug=1` is in the URL, in every environment. Used to
+ * also default on in non-production builds, but it covered the session
+ * page in local dev and demos; opt in with the query param when tuning.
  * Deliberately plain: fixed-position monospace text, no design investment
  * — this is a diagnostic tool, not a feature.
  */
@@ -16,9 +17,7 @@ export default function AttentionDebugOverlay({
   attention: AttentionState;
 }) {
   const searchParams = useSearchParams();
-  const forcedOn = searchParams.get("debug") === "1";
-  const devDefault = process.env.NODE_ENV !== "production";
-  if (!forcedOn && !devDefault) return null;
+  if (searchParams.get("debug") !== "1") return null;
 
   const f = attention.debug.frame;
 

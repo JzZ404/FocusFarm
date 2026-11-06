@@ -599,6 +599,33 @@ html, body {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   SESSION CAMERA FRAME
+   ══════════════════════════════════════════════════════════════ */
+/* Webcam frame on /session (AttentionHUD). The ring color IS the attention
+ * state (set via --cam-state), so it has to read at a peripheral glance
+ * while the user is looking at other work. Drawn as an inset box-shadow
+ * inside the padding, not an outline — .pixel-panel's outline sits outside
+ * the box and gets cut away by the notched clip-path. Every state color
+ * clears 3:1 against #0f1f0f (see DESIGN.md's contrast checklist). */
+.cam-frame {
+  --cam-state: #6aaa35;
+  position: relative;
+  background: #0f1f0f;
+  padding: 7px;
+  box-shadow: inset 0 0 0 4px var(--cam-state);
+  transition: box-shadow 300ms ease;
+  clip-path: polygon(
+    8px 0%, calc(100% - 8px) 0%,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0% calc(100% - 8px), 0% 8px
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .cam-frame { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
    PLACEMENT MODE PULSE
    ══════════════════════════════════════════════════════════════ */
 @keyframes placePulse {

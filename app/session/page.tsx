@@ -12,9 +12,11 @@ import { getAttentionCalibration, saveAttentionCalibration } from "@/lib/storage
 import AttentionHUD from "@/components/AttentionHUD";
 import AttentionDebugOverlay from "@/components/AttentionDebugOverlay";
 import CalibrationScreen from "@/components/CalibrationScreen";
-import SessionTimer from "@/components/SessionTimer";
+import SessionTimer, { formatClock } from "@/components/SessionTimer";
+import RewardTiers from "@/components/RewardTiers";
 import CoinDisplay from "@/components/CoinDisplay";
 import PixelButton from "@/components/PixelButton";
+import { calculateReward } from "@/lib/coins";
 
 function SessionPageInner() {
   const { ledger } = useFarm();
@@ -97,6 +99,8 @@ function SessionPageInner() {
 
   const isRunning = status === "running";
   const isCalibrating = calibrationStep === "calibrating";
+  const isIdle = (status === "idle" || status === "abandoned") && !isCalibrating;
+  const liveReward = calculateReward(focusedSeconds);
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "#1a2e1a" }}>
@@ -107,7 +111,7 @@ function SessionPageInner() {
           differ: two buttons vs. one coin badge). Same pattern app/farm's
           header already uses. */}
       <header
-        className="grid items-center px-5 py-3"
+        className="grid items-center gap-2 px-3 sm:px-5 py-3"
         style={{ gridTemplateColumns: "1fr auto 1fr", background: "#0a150a", borderBottom: "3px solid #2d4a2d" }}
       >
         <div className="flex items-center gap-2 justify-self-start">
@@ -118,7 +122,14 @@ function SessionPageInner() {
             <PixelButton variant="outline" size="sm">Farm</PixelButton>
           </Link>
         </div>
-        <span className="font-pixel text-pixel-lg text-white justify-self-center">Focus Session</span>
+        {/* Two spans, not `sm:text-pixel-lg`: the .text-pixel-* scale is
+            plain CSS outside any @layer, so Tailwind can't generate
+            responsive variants of it. At 16px the title wrapped to 2 lines
+            between the header buttons on phones. */}
+        <span className="justify-self-center whitespace-nowrap font-pixel text-white">
+          <span className="sm:hidden text-pixel-md">Focus Session</span>
+          <span className="hidden sm:inline text-pixel-lg">Focus Session</span>
+        </span>
         <div className="justify-self-end">
           <CoinDisplay balance={ledger.balance} size="sm" />
         </div>
@@ -130,12 +141,15 @@ function SessionPageInner() {
           <div
             className="pixel-panel flex flex-col items-center gap-5 w-full max-w-sm p-8"
           >
-            <h2 className="font-pixel text-pixel-lg text-green-400">Session Complete!</h2>
+            <h2 className="font-pixel text-pixel-lg text-green-400">Session complete</h2>
 
             <div className="flex flex-col gap-3 w-full">
               {[
-                { label: "Focused", value: `${Math.floor(lastSummary.focusedSeconds/60)}m ${lastSummary.focusedSeconds%60}s`, color: "#4ade80" },
-                { label: "Away",    value: `${Math.floor(lastSummary.distractedSeconds/60)}m ${lastSummary.distractedSeconds%60}s`, color: "#f87171" },
+                // formatClock floors: since Phase 3 these are fractional
+                // (∫ focusScore dt), and the old `${s % 60}s` printed
+                // things like "12.734s".
+                { label: "Focused",    value: formatClock(lastSummary.focusedSeconds),    color: "#4ade80" },
+                { label: "Distracted", value: formatClock(lastSummary.distractedSeconds), color: "#f87171" },
                 { label: "Multiplier", value: `${lastSummary.tierMultiplier}×`, color: "#fbbf24" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="flex justify-between font-pixel text-pixel-sm">
@@ -154,19 +168,21 @@ function SessionPageInner() {
 
             <div className="flex gap-3 w-full">
               <PixelButton className="flex-1" onClick={() => { dismissSummary(); router.push("/farm"); }}>
-                Farm
+                Go to farm
               </PixelButton>
               <Link href="/shop" className="flex-1" onClick={dismissSummary}>
-                <PixelButton variant="outline" className="w-full">Shop</PixelButton>
+                <PixelButton variant="outline" className="w-full">Visit shop</PixelButton>
               </Link>
             </div>
           </div>
         </div>
       )}
 
-      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-7">
+      {/* One 480px column: wide enough for a camera preview you can
+          actually see yourself in (was a fixed 200×150), narrow enough
+          that the timer/stats stay a single glance away from it. */}
+      <main className="flex-1 w-full max-w-[480px] mx-auto flex flex-col items-center justify-center px-4 py-8 gap-8">
 
-        {/* Attention HUD */}
         <AttentionHUD
           isFocused={attention.isFocused}
           faceDetected={attention.faceDetected}
@@ -175,21 +191,21 @@ function SessionPageInner() {
           videoRef={webcam.videoRef}
           webcamStatus={webcam.status}
           distractedReason={attention.distractedReason}
+          sessionRunning={isRunning}
         />
 
-        {/* Live timer */}
         {isRunning && (
           <SessionTimer
             elapsedSeconds={elapsedSeconds}
             focusedSeconds={focusedSeconds}
             distractedSeconds={distractedSeconds}
+            coinsSoFar={liveReward.coins}
           />
         )}
 
-        {/* Camera error */}
         {webcam.error && (
           <div
-            className="pixel-panel font-pixel text-pixel-sm text-center px-4 py-3 max-w-xs"
+            className="pixel-panel font-pixel text-pixel-sm text-center px-4 py-3 w-full"
             style={{ color: "#fbbf24" }}
           >
             {webcam.error}
@@ -205,63 +221,43 @@ function SessionPageInner() {
             error={calibration.error}
             onRetry={calibration.retry}
           />
-        ) : status === "idle" || status === "abandoned" ? (
-          // Was items-center — same size/padding prop on both buttons, but
-          // "Start without Camera" is 3 characters longer than "Start with
-          // Camera", so each button sized to its own text and rendered at a
-          // visibly different width. w-fit sizes the container to its
-          // widest child's natural width (not a guessed fixed cap, which
-          // wrapped the longer label to 2 lines); items-stretch then makes
-          // both buttons fill that same width.
-          <div className="flex flex-col items-stretch gap-3 w-fit">
-            <PixelButton size="lg" onClick={handleStart}>
-              Start with Camera
-            </PixelButton>
-            <PixelButton variant="outline" size="lg" onClick={() => startSession(25)}>
-              Start without Camera
-            </PixelButton>
+        ) : isIdle ? (
+          // Stacked full-width, not side by side: at Press Start 2P's width,
+          // "Start without camera" wraps to 3 lines in half of 480px.
+          <div className="flex flex-col items-center gap-4 w-full">
+            <div className="flex flex-col gap-4 w-full">
+              <PixelButton size="lg" onClick={handleStart}>
+                Start with camera
+              </PixelButton>
+              <PixelButton variant="outline" size="lg" onClick={() => startSession(25)}>
+                Start without camera
+              </PixelButton>
+            </div>
+            {/* SessionContext never feeds a focus score without a camera,
+                so these sessions always pay 0 — say so before, not after. */}
+            <p className="font-pixel text-pixel-xs text-gray-400 text-center">
+              Without a camera the timer runs, but you won&apos;t earn coins.
+            </p>
             {webcam.status === "active" && (
-              // variant "outline" not "tertiary": PixelButton.tsx on main
-              // doesn't have the tertiary variant (it lives in the
-              // unmerged feature/starter-menu-and-design-system branch) —
-              // using it here is what broke the Vercel build. Switch back
-              // once that branch merges.
-              <PixelButton variant="outline" size="sm" onClick={handleRecalibrate}>
-                Recalibrate
+              <PixelButton variant="tertiary" onClick={handleRecalibrate}>
+                Recalibrate camera
               </PixelButton>
             )}
           </div>
         ) : isRunning ? (
-          <div className="flex gap-3">
-            <PixelButton size="md" onClick={endSession}>Finish</PixelButton>
+          <div className="flex items-center gap-4">
+            <PixelButton size="md" onClick={endSession}>Finish session</PixelButton>
             <PixelButton variant="danger" size="sm" onClick={abandonSession}>Abandon</PixelButton>
           </div>
         ) : null}
 
-        {/* Reward tier reference card */}
-        {(status === "idle" || status === "abandoned") && !isCalibrating && (
-          <div className="pixel-panel p-4 w-full max-w-xs">
-            <p className="font-pixel text-pixel-xs text-center text-gray-400 mb-3">
-              Coin Rewards
-            </p>
-            <div className="flex flex-col gap-2">
-              {[
-                /* DEMO MODE: minutes → seconds. Revert ranges after demo. */
-                { label: "Warm Up   (0–9s)",   mult: "0.5×", color: "#fbbf24" },
-                { label: "Good Start (10–19s)", mult: "1×",   color: "#4ade80" },
-                { label: "Solid Focus (20–29s)",mult: "1.5×", color: "#60a5fa" },
-                { label: "Deep Focus  (30s+)", mult: "2×",   color: "#c084fc" },
-              ].map(({ label, mult, color }) => (
-                <div key={label} className="flex justify-between font-pixel text-pixel-xs">
-                  <span className="text-gray-500">{label}</span>
-                  <span style={{ color }}>{mult}</span>
-                </div>
-              ))}
-            </div>
-            <p className="font-pixel text-pixel-xs text-center text-gray-500 mt-3">
-              5 coins / focused sec × multiplier
-            </p>
-          </div>
+        {/* Same card before and during a session; mid-session it marks the
+            tier you're currently in (only camera sessions can earn, so
+            no highlight when there's no camera). */}
+        {(isIdle || isRunning) && (
+          <RewardTiers
+            activeMultiplier={isRunning && webcam.status === "active" ? liveReward.tierMultiplier : undefined}
+          />
         )}
       </main>
 

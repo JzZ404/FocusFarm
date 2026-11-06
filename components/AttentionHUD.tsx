@@ -12,6 +12,12 @@ interface AttentionHUDProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   webcamStatus: string;
   distractedReason?: DistractionReason;
+  /** True while a session is running (with or without a camera). Without
+   * it, "detector not running yet" (pre-session) and "detector still
+   * loading" (mid-session) look identical from isDetecting alone — the
+   * old HUD read "Initializing..." on the idle page before the camera was
+   * even requested. */
+  sessionRunning: boolean;
 }
 
 const REASON_LABEL: Record<Exclude<DistractionReason, null>, string> = {
@@ -21,110 +27,120 @@ const REASON_LABEL: Record<Exclude<DistractionReason, null>, string> = {
   no_face: "No face detected",
 };
 
-export default function AttentionHUD({
-  isFocused,
-  faceDetected,
-  isDetecting,
-  error,
-  videoRef,
-  webcamStatus,
-  distractedReason,
-}: AttentionHUDProps) {
+// Same semantic colors as DESIGN.md (focused / distracted / coin-yellow for
+// "needs attention" / --grass-a ready), plus gray for camera-off/loading —
+// a green "Camera off" read as a good state. All ≥6:1 on #0f1f0f.
+const STATE_COLOR = {
+  ready: "#6aaa35",
+  off: "#9ca3af",
+  loading: "#9ca3af",
+  noFace: "#fbbf24",
+  focused: "#4ade80",
+  distracted: "#f87171",
+} as const;
+
+type HudState = keyof typeof STATE_COLOR;
+
+function describe(p: AttentionHUDProps): { state: HudState; label: string; detail: string | null } {
+  const cameraOn = p.webcamStatus === "active";
+  if (!p.sessionRunning) {
+    return cameraOn
+      ? { state: "ready", label: "Camera ready", detail: null }
+      : { state: "off", label: "Camera off", detail: null };
+  }
+  if (!cameraOn) {
+    return { state: "off", label: "Camera off", detail: "Timer only. Camera sessions earn coins." };
+  }
+  if (!p.isDetecting) return { state: "loading", label: "Starting face tracker", detail: null };
+  if (!p.faceDetected) return { state: "noFace", label: "No face in view", detail: "Move back in front of the camera" };
+  if (p.isFocused) return { state: "focused", label: "Focused", detail: null };
+  return {
+    state: "distracted",
+    label: "Distracted",
+    detail: p.distractedReason ? REASON_LABEL[p.distractedReason] : null,
+  };
+}
+
+export default function AttentionHUD(props: AttentionHUDProps) {
+  const { error, videoRef, webcamStatus } = props;
   const [showPreview, setShowPreview] = useState(true);
-
-  const statusText = !isDetecting
-    ? "Initializing..."
-    : !faceDetected
-    ? "No face detected"
-    : isFocused
-    ? "FOCUSED"
-    : "DISTRACTED";
-
-  const statusColor = !isDetecting
-    ? "text-gray-400"
-    : !faceDetected
-    ? "text-yellow-400"
-    : isFocused
-    ? "text-farm-focused"
-    : "text-farm-distracted";
-
-  const ringColor = isFocused && faceDetected ? "border-farm-focused" : "border-farm-distracted";
+  const { state, label, detail } = describe(props);
+  const color = STATE_COLOR[state];
+  const cameraOn = webcamStatus === "active";
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col gap-3 w-full">
       {error && (
-        <div className="font-pixel text-pixel-sm text-yellow-400 bg-yellow-900/30 border border-yellow-500/30 rounded px-3 py-2 text-center max-w-xs">
+        <div className="pixel-panel font-pixel text-pixel-sm text-center px-4 py-3" style={{ color: "#fbbf24" }}>
           {error}
         </div>
       )}
 
       <div
-        className={`relative rounded-lg border-2 overflow-hidden transition-colors duration-500 ${ringColor}`}
-        style={{ width: 200, height: 150 }}
+        className="cam-frame"
+        style={{ "--cam-state": color } as React.CSSProperties}
       >
-        {webcamStatus === "active" ? (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              playsInline
-              className={`w-full h-full object-cover ${showPreview ? "block" : "hidden"}`}
-              style={{ transform: "scaleX(-1)" }}
-            />
-            {!showPreview && (
-              <div className="w-full h-full bg-farm-panel flex items-center justify-center">
-                <span className="font-pixel text-pixel-sm text-gray-500">Preview hidden</span>
-              </div>
-            )}
-            {/* Was a bare 11px-tall button with no padding — under WCAG
-                2.5.8's 24x24px target-size minimum — and its default focus
-                ring would've been cropped by this container's
-                overflow-hidden (see pixel-btn-tertiary-inset in globals.css).
-                Backing bumped toward-opaque (was black/50) since the actual
-                backdrop here is a live, unpredictable camera feed, not a
-                fixed app color — needs to stay legible against any frame.
-                variant temporarily "outline" instead of "tertiary": the
-                tertiary variant/its CSS lives in the unmerged
-                feature/starter-menu-and-design-system work, not on main —
-                using it here broke the Vercel build (PixelButton.tsx on
-                main only supports primary/outline/danger). Switch back to
-                "tertiary" once that branch merges. */}
-            <PixelButton
-              variant="outline"
-              onClick={() => setShowPreview((v) => !v)}
-              className="pixel-btn-tertiary-inset absolute bottom-1 right-1"
-              style={{ background: "rgba(0,0,0,0.85)" }}
-            >
-              {showPreview ? "Hide" : "Show"}
-            </PixelButton>
-          </>
-        ) : (
-          <div className="w-full h-full bg-farm-panel flex items-center justify-center">
-            <span className="font-pixel text-pixel-sm text-gray-500 text-center px-2">
-              {webcamStatus === "denied"
-                ? "Camera denied"
-                : "No camera"}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div
-        className={`font-pixel text-pixel-lg transition-colors duration-300 ${statusColor}`}
-      >
-        {statusText}
-      </div>
-
-      {isDetecting && !isFocused && distractedReason && (
-        <div className="font-pixel text-pixel-sm text-gray-400">
-          {REASON_LABEL[distractedReason]}
+        <div className="relative w-full aspect-[4/3] overflow-hidden bg-farm-panel">
+          {cameraOn ? (
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`w-full h-full object-cover ${showPreview ? "block" : "hidden"}`}
+                style={{ transform: "scaleX(-1)" }}
+              />
+              {!showPreview && (
+                <div className="absolute inset-0 flex items-center justify-center px-6">
+                  <span className="font-pixel text-pixel-sm text-gray-400 text-center">
+                    Preview hidden. Detection is still on.
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center px-6">
+              <span className="font-pixel text-pixel-sm text-gray-400 text-center">
+                {webcamStatus === "denied"
+                  ? "Camera access is blocked. Allow it in your browser's site settings."
+                  : "Your camera preview shows up here"}
+              </span>
+            </div>
+          )}
         </div>
-      )}
 
-      {!isDetecting && webcamStatus === "active" && (
-        <div className="font-pixel text-pixel-sm text-gray-500">Loading AI model...</div>
-      )}
+        {/* Status strip — attached to the frame rather than floating below
+            it, so the label and the ring color read as one signal. The
+            Hide/Show toggle moved here from its old overlay spot inside the
+            video's overflow-hidden box, which is what needed the
+            black/0.85 backing and the inset focus-ring workaround. */}
+        <div className="flex items-center gap-3 px-2 pt-3 pb-1 min-h-[52px]">
+          <span
+            aria-hidden
+            className="shrink-0 w-3 h-3 transition-colors duration-300 motion-reduce:transition-none"
+            style={{ background: color }}
+          />
+          <div className="flex flex-col gap-1 min-w-0" role="status" aria-live="polite">
+            <span
+              className="font-pixel text-pixel-md transition-colors duration-300 motion-reduce:transition-none"
+              style={{ color }}
+            >
+              {label}
+            </span>
+            {detail && <span className="font-pixel text-pixel-xs text-gray-400">{detail}</span>}
+          </div>
+          {cameraOn && (
+            <PixelButton
+              variant="tertiary"
+              className="ml-auto shrink-0"
+              onClick={() => setShowPreview((v) => !v)}
+            >
+              {showPreview ? "Hide preview" : "Show preview"}
+            </PixelButton>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
